@@ -20,7 +20,12 @@ if (isDatabaseConfigured && prisma) {
 }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-purple-deep px-6 py-16">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-purple-deep px-6 py-16">
+        <div aria-hidden="true" className="pointer-events-none absolute inset-0" >
+        <div className="absolute left-[8%] top-[14%] h-40 w-40 rounded-full border border-gold/10" />
+        <div className="absolute bottom-[10%] right-[7%] h-56 w-56 rounded-full border border-white/5" />
+        <div className="absolute left-1/2 top-0 h-px w-48 -translate-x-1/2 bg-gold/30" />
+    </div>
       <div className="w-full max-w-sm">
         <div className="mb-10 flex flex-col items-center gap-4">
           <Wordmark tone="cream" logoSrc={logoSrc} />
