@@ -131,11 +131,29 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  firebaseIdentities FirebaseIdentity[]
+
   contacts           Contact[]
   campaigns          Campaign[]
   senderIdentities   SenderIdentity[]
   suppressionEntries SuppressionEntry[]
   providerAccounts   ProviderAccount[]
+}
+
+model FirebaseIdentity {
+  id       String @id @default(cuid())
+  uid      String @unique
+  email    String
+  provider String
+  userId   String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([email])
 }
 
 // ---------------------------------------------------------------------------

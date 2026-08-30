@@ -13,10 +13,7 @@ import {
   loginWithGoogle,
 } from "@/lib/firebase/auth-client";
 
-import {
-  createOwnerAccount,
-  type LoginFormState,
-} from "@/app/login/actions";
+import type { LoginFormState } from "@/app/login/actions";
 
 import { Button } from "@/components/ui/button";
 
@@ -60,24 +57,6 @@ export function LoginForm({
 
     const formData =
       new FormData(event.currentTarget);
-
-    if (mode === "bootstrap") {
-      setPending(true);
-
-      try {
-        const result =
-          await createOwnerAccount(
-            initialState,
-            formData
-          );
-
-        setState(result);
-      } finally {
-        setPending(false);
-      }
-
-      return;
-    }
 
     const email = String(
       formData.get("email") ?? ""
@@ -133,7 +112,7 @@ export function LoginForm({
 
   return (
     <div className="relative">
-      {/* Small architectural accent behind the card */}
+      {/* Architectural accents behind the card */}
       <div
         aria-hidden="true"
         className="absolute -right-2 -top-2 h-16 w-16 border-r border-t border-gold/50"
@@ -145,7 +124,7 @@ export function LoginForm({
       />
 
       <div className="relative overflow-hidden rounded-md border border-white/70 bg-cream p-7 shadow-[0_24px_70px_rgba(18,8,31,0.28)] sm:p-8">
-        {/* restrained gold line */}
+        {/* Gold accent line */}
         <div
           aria-hidden="true"
           className="absolute left-0 right-0 top-0 h-px bg-gold"
@@ -233,16 +212,8 @@ export function LoginForm({
                     : "password"
                 }
                 required
-                minLength={
-                  mode === "bootstrap"
-                    ? 8
-                    : undefined
-                }
-                autoComplete={
-                  mode === "bootstrap"
-                    ? "new-password"
-                    : "current-password"
-                }
+                autoComplete="current-password"
+                placeholder="Enter your password"
                 className={`${inputClasses} pr-11`}
               />
 
@@ -262,9 +233,15 @@ export function LoginForm({
                 className="absolute right-0 top-0 flex h-full w-11 items-center justify-center text-slate/55 transition-colors hover:text-purple focus:outline-none focus-visible:text-purple"
               >
                 {showPassword ? (
-                  <Eye size={17} strokeWidth={1.8} />
+                  <Eye
+                    size={17}
+                    strokeWidth={1.8}
+                  />
                 ) : (
-                  <EyeOff size={17} strokeWidth={1.8} />
+                  <EyeOff
+                    size={17}
+                    strokeWidth={1.8}
+                  />
                 )}
               </button>
             </div>
@@ -292,8 +269,6 @@ export function LoginForm({
                 />
                 Please wait…
               </>
-            ) : mode === "bootstrap" ? (
-              "Create account"
             ) : (
               "Sign in to Reigna"
             )}
@@ -317,7 +292,7 @@ export function LoginForm({
               variant="secondary"
               disabled={pending}
               onClick={handleGoogleLogin}
-              className="mt-5 h-12 w-full border-charcoal/12 bg-white font-medium"
+              className="mt-5 h-12 w-full border-charcoal/12 bg-white font-medium shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-purple/30 hover:bg-white hover:shadow-md"
             >
               <GoogleIcon />
               <span>Continue with Google</span>
@@ -347,14 +322,17 @@ function GoogleIcon() {
         fill="#4285F4"
         d="M21.35 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.23a4.46 4.46 0 0 1-1.94 2.92v2.42h3.14c1.84-1.69 2.92-4.18 2.92-7.37Z"
       />
+
       <path
         fill="#34A853"
         d="M12 21.5c2.63 0 4.84-.87 6.45-2.36l-3.14-2.42c-.87.58-1.98.92-3.31.92-2.54 0-4.7-1.72-5.47-4.03H3.29v2.5A9.74 9.74 0 0 0 12 21.5Z"
       />
+
       <path
         fill="#FBBC05"
         d="M6.53 13.61A5.86 5.86 0 0 1 6.22 12c0-.56.1-1.1.31-1.61v-2.5H3.29A9.74 9.74 0 0 0 2.25 12c0 1.57.38 3.05 1.04 4.39l3.24-2.78Z"
       />
+
       <path
         fill="#EA4335"
         d="M12 6.36c1.43 0 2.71.49 3.72 1.45l2.79-2.79C16.84 3.43 14.63 2.5 12 2.5a9.74 9.74 0 0 0-8.71 5.39l3.24 2.5C7.3 8.08 9.46 6.36 12 6.36Z"
@@ -366,34 +344,27 @@ function GoogleIcon() {
 function getFirebaseLoginError(
   error: Error
 ): string {
-  const code =
-    "code" in error
-      ? String(
-          (error as Error & {
-            code?: string;
-          }).code ?? ""
-        )
-      : "";
-
-  switch (code) {
-    case "auth/invalid-credential":
-    case "auth/wrong-password":
-    case "auth/user-not-found":
+  switch (error.message) {
+    case "Firebase: Error (auth/invalid-credential).":
+    case "Firebase: Error (auth/invalid-login-credentials).":
       return "Incorrect email or password.";
 
-    case "auth/too-many-requests":
-      return "Too many sign-in attempts. Please try again later.";
+    case "Firebase: Error (auth/user-disabled).":
+      return "This account has been disabled.";
 
-    case "auth/popup-closed-by-user":
+    case "Firebase: Error (auth/too-many-requests).":
+      return "Too many login attempts. Please try again later.";
+
+    case "Firebase: Error (auth/popup-closed-by-user).":
       return "Google sign-in was cancelled.";
 
-    case "auth/popup-blocked":
-      return "Your browser blocked the Google sign-in window.";
+    case "Firebase: Error (auth/popup-blocked).":
+      return "Your browser blocked the Google sign-in popup.";
+
+    case "Firebase: Error (auth/account-exists-with-different-credential).":
+      return "An account already exists with this email using a different sign-in method.";
 
     default:
-      return (
-        error.message ||
-        "Unable to sign in."
-      );
+      return error.message || "Unable to sign in.";
   }
 }

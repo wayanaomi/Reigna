@@ -15,16 +15,32 @@ export async function getOwnerId(): Promise<string | null> {
     return null;
   }
 
-  const user = await prisma.user.findUnique({
-    where: {
-      firebaseUid: decodedToken.uid,
-    },
-    select: {
-      id: true,
-    },
-  });
+  /*
+   * Resolve the authenticated Firebase identity to the
+   * corresponding Reigna owner.
+   *
+   * Multiple Firebase identities can belong to the same
+   * Reigna user, for example:
+   *
+   *   test@gmail.com
+   *     → password
+   *
+   *   naomiwayabsc@gmail.com
+   *     → Google
+   *
+   * Both resolve to the same User.id.
+   */
+  const firebaseIdentity =
+    await prisma.firebaseIdentity.findUnique({
+      where: {
+        uid: decodedToken.uid,
+      },
+      select: {
+        userId: true,
+      },
+    });
 
-  return user?.id ?? null;
+  return firebaseIdentity?.userId ?? null;
 }
 
 export async function requireOwnerId(): Promise<string> {
