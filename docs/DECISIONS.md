@@ -1,0 +1,14 @@
+# Reigna — Decisions Log
+
+Chronological log of assumptions/decisions made autonomously per the project's operating instructions. Product/UX rationale lives in `PRODUCT_DECISIONS.md`; this file is the running log of *what was decided and when*.
+
+## 2026-08-28
+
+- **Scaffold location.** `create-next-app` rejects uppercase package names, so the project was scaffolded in a lowercase temp directory (`/tmp/reigna-scaffold`) and its contents copied into the real `REIGNA/` workspace folder; `package.json`'s `name` field was corrected to `"reigna"` afterward.
+- **Stack versions.** Next.js 16 / React 19 / Tailwind v4 (whatever `create-next-app@latest` provisioned at time of setup) — no reason to pin older majors for a greenfield project.
+- **Prisma major version.** Used Prisma 6 (not 7) — v7's driver-adapter requirement is unnecessary complexity for a straightforward PostgreSQL setup at this stage; revisit if a future dependency requires v7.
+- **Real-data-only architecture.** All mock/seed data was removed from the codebase; every service reports an explicit `configured`/`empty`/`error` state instead. See `PRODUCT_DECISIONS.md` → "Real-data-only architecture" for full rationale. This is a hard product requirement, not a style preference — do not reintroduce mock data at any layer.
+- **Data model additions beyond the PRD's literal field list.** Added `Contact.whyThisPerson` and `Contact.recommendation` as first-class columns (rather than deriving them from `researchSignals` at read time) because the Lead Detail dossier and Talk-to-Today experience both need to render these as distinct, explicit sections, and they are values written once by the (future) research/personalization pipeline, not recomputed per view.
+- **Campaign stats are always computed, never stored.** `CampaignStats` has no corresponding Prisma columns — it's computed live from `Message`/`Event` rows on every read, so campaign metrics can never drift from what actually happened.
+- **New service boundaries beyond the PRD's explicit list.** Added `research`, `personalization`, and `verification` service boundaries (in addition to `discovery`, `sending`, `tracking`) since the PRD's own AI pipeline (`FIND → VERIFY → RESEARCH → WRITE`) requires them as distinct steps; all currently unconfigured (no provider selected yet).
+- **Typography: system fonts instead of next/font/google.** `next/font/google` (Playfair Display + Inter) failed to resolve in this sandboxed dev environment (Turbopack dev server couldn't fetch font files, though production `next build` succeeded). Switched to the brand guide's explicit system-font alternative — Georgia Bold for display, a system sans stack (-apple-system/Segoe UI/Helvetica/Arial) for body — eliminating the network dependency entirely rather than depending on an environment-specific fetch succeeding.

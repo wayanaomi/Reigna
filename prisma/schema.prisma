@@ -124,6 +124,7 @@ enum ResearchRunStatus {
 // multi-seat teams later without a data migration.
 model User {
   id           String   @id @default(cuid())
+  firebaseUid  String?  @unique
   email        String   @unique
   passwordHash String
   name         String?
@@ -142,24 +143,24 @@ model User {
 // ---------------------------------------------------------------------------
 
 model Contact {
-  id              String  @id @default(cuid())
-  ownerId         String
-  owner           User    @relation(fields: [ownerId], references: [id])
-  company         String
-  companyDomain   String?
-  companyAddress  String?
-  companyPhone    String?
-  companyCategory String?
-  name            String
-  title           String?
-  email           String
+  id                 String             @id @default(cuid())
+  ownerId            String
+  owner              User               @relation(fields: [ownerId], references: [id])
+  company            String
+  companyDomain      String?
+  companyAddress     String?
+  companyPhone       String?
+  companyCategory    String?
+  name               String
+  title              String?
+  email              String
   verificationStatus VerificationStatus @default(UNVERIFIED)
   verifiedAt         DateTime?
   emailConfidence    Int?
   decisionMakerScore Int?
-  source        ContactSource @default(DISCOVERY)
-  sourceUrl     String?
-  engagementScore Int @default(0)
+  source             ContactSource      @default(DISCOVERY)
+  sourceUrl          String?
+  engagementScore    Int                @default(0)
 
   // Research context captured during the discovery/research pipeline.
   researchSummary String?
@@ -181,10 +182,10 @@ model Contact {
 }
 
 model Campaign {
-  id               String   @id @default(cuid())
+  id               String         @id @default(cuid())
   name             String
   ownerId          String
-  owner            User     @relation(fields: [ownerId], references: [id])
+  owner            User           @relation(fields: [ownerId], references: [id])
   senderIdentityId String
   senderIdentity   SenderIdentity @relation(fields: [senderIdentityId], references: [id])
   status           CampaignStatus @default(DRAFT)
