@@ -262,9 +262,9 @@ export function LoginForm({
                 className="absolute right-0 top-0 flex h-full w-11 items-center justify-center text-slate/55 transition-colors hover:text-purple focus:outline-none focus-visible:text-purple"
               >
                 {showPassword ? (
-                  <EyeOff size={17} strokeWidth={1.8} />
-                ) : (
                   <Eye size={17} strokeWidth={1.8} />
+                ) : (
+                  <EyeOff size={17} strokeWidth={1.8} />
                 )}
               </button>
             </div>
