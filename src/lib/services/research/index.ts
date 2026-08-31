@@ -78,16 +78,34 @@ async function synthesize(
 
   const userPrompt = `Company: ${company}\nDomain: ${domain ?? "unknown"}\nDecision-maker: ${personName} (${title})\n\nEvidence:\n${evidenceList}`;
 
-  for (let attempt = 0; attempt < 2; attempt++) {
-    try {
-      const raw = await anthropicProvider.completeJson(system, userPrompt);
-      const parsed = SynthesisSchema.safeParse(raw);
-      if (parsed.success) return parsed.data;
-    } catch {
-      // retry once
+ let lastError: unknown;
+
+for (let attempt = 0; attempt < 2; attempt++) {
+  try {
+    const raw = await anthropicProvider.completeJson(system, userPrompt);
+    const parsed = SynthesisSchema.safeParse(raw);
+
+    if (parsed.success) {
+      return parsed.data;
     }
+
+    lastError = new Error(
+      `Anthropic returned invalid research JSON: ${parsed.error.message}`
+    );
+  } catch (error) {
+    lastError = error;
   }
-  return null;
+}
+
+if (lastError instanceof ProviderError) {
+  throw lastError;
+}
+
+throw new Error(
+  lastError instanceof Error
+    ? lastError.message
+    : "Anthropic research synthesis failed."
+);
 }
 
 class TavilyResearchService implements ResearchService {

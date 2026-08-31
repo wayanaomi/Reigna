@@ -23,6 +23,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "name, senderIdentityId, and at least one contactId are required." }, { status: 400 });
   }
 
+  try {
   const campaign = await campaignsService.create(ownerId, {
     name,
     senderIdentityId,
@@ -31,7 +32,26 @@ export async function POST(request: NextRequest) {
     followUpDelayDays: body?.followUpDelayDays ?? 4,
   });
 
-  const draftResult = await generateDraftsForCampaign(ownerId, campaign.id);
+  const draftResult = await generateDraftsForCampaign(
+    ownerId,
+    campaign.id
+  );
 
-  return NextResponse.json({ campaign, draftResult });
+  return NextResponse.json(
+    { campaign, draftResult },
+    { status: 201 }
+  );
+} catch (error) {
+  console.error("Campaign creation failed:", error);
+
+  return NextResponse.json(
+    {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Reigna couldn't create this campaign.",
+    },
+    { status: 422 }
+  );
+}
 }

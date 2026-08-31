@@ -1,10 +1,11 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { prisma, isDatabaseConfigured } from "@/lib/db";
 import { verifyFirebaseSession } from "@/lib/firebase/session";
 
-export async function getOwnerId(): Promise<string | null> {
+export const getOwnerId = cache(async (): Promise<string | null> => {
   if (!isDatabaseConfigured || !prisma) {
     return null;
   }
@@ -15,21 +16,6 @@ export async function getOwnerId(): Promise<string | null> {
     return null;
   }
 
-  /*
-   * Resolve the authenticated Firebase identity to the
-   * corresponding Reigna owner.
-   *
-   * Multiple Firebase identities can belong to the same
-   * Reigna user, for example:
-   *
-   *   test@gmail.com
-   *     → password
-   *
-   *   naomiwayabsc@gmail.com
-   *     → Google
-   *
-   * Both resolve to the same User.id.
-   */
   const firebaseIdentity =
     await prisma.firebaseIdentity.findUnique({
       where: {
@@ -41,9 +27,9 @@ export async function getOwnerId(): Promise<string | null> {
     });
 
   return firebaseIdentity?.userId ?? null;
-}
+});
 
-export async function requireOwnerId(): Promise<string> {
+export const requireOwnerId = cache(async (): Promise<string> => {
   const ownerId = await getOwnerId();
 
   if (!ownerId) {
@@ -51,4 +37,4 @@ export async function requireOwnerId(): Promise<string> {
   }
 
   return ownerId;
-}
+});

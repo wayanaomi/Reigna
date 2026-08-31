@@ -48,6 +48,13 @@ async function complete(system: string, userPrompt: string, maxTokens = 1200): P
       "Content-Type": "application/json",
       "x-api-key": apiKey,
       "anthropic-version": ANTHROPIC_VERSION,
+      ...(process.env.ANTHROPIC_WORKSPACE_ID
+    ? {
+        "anthropic-workspace-id":
+          process.env.ANTHROPIC_WORKSPACE_ID,
+      }
+    : {}),
+    
     },
     body: JSON.stringify({
       model: model(),

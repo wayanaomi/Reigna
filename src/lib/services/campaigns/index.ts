@@ -52,119 +52,105 @@ async function computeStats(
     return zeroCampaignStats();
   }
 
-  const [
-    contacts,
-    approved,
-    queued,
-    sent,
-    followUpsSent,
-    delivered,
-    opened,
-    clicked,
-    replied,
-    bounced,
-    unsubscribed,
-  ] = await Promise.all([
-    prisma.campaignContact.count({
-      where: {
+  const contacts = await prisma.campaignContact.count({
+    where: {
+      campaignId,
+    },
+  });
+
+  const approved = await prisma.message.count({
+    where: {
+      campaignId,
+      status: {
+        in: [
+          "APPROVED",
+          "QUEUED",
+          "SENT",
+          "FOLLOWED_UP",
+        ],
+      },
+    },
+  });
+
+  const queued = await prisma.message.count({
+    where: {
+      campaignId,
+      status: "QUEUED",
+    },
+  });
+
+  const sent = await prisma.message.count({
+    where: {
+      campaignId,
+      sentAt: {
+        not: null,
+      },
+    },
+  });
+
+  const followUpsSent = await prisma.message.count({
+    where: {
+      campaignId,
+      variant: "FOLLOW_UP",
+      sentAt: {
+        not: null,
+      },
+    },
+  });
+
+  const delivered = await prisma.event.count({
+    where: {
+      type: "DELIVERED",
+      message: {
         campaignId,
       },
-    }),
+    },
+  });
 
-    prisma.message.count({
-      where: {
+  const opened = await prisma.event.count({
+    where: {
+      type: "OPENED",
+      message: {
         campaignId,
-        status: {
-          in: [
-            "APPROVED",
-            "QUEUED",
-            "SENT",
-            "FOLLOWED_UP",
-          ],
-        },
       },
-    }),
+    },
+  });
 
-    prisma.message.count({
-      where: {
+  const clicked = await prisma.event.count({
+    where: {
+      type: "CLICKED",
+      message: {
         campaignId,
-        status: "QUEUED",
       },
-    }),
+    },
+  });
 
-    prisma.message.count({
-      where: {
+  const replied = await prisma.event.count({
+    where: {
+      type: "REPLIED",
+      message: {
         campaignId,
-        sentAt: {
-          not: null,
-        },
       },
-    }),
+    },
+  });
 
-    prisma.message.count({
-      where: {
+  const bounced = await prisma.event.count({
+    where: {
+      type: "BOUNCED",
+      message: {
         campaignId,
-        variant: "FOLLOW_UP",
-        sentAt: {
-          not: null,
-        },
       },
-    }),
+    },
+  });
 
-    prisma.event.count({
-      where: {
-        type: "DELIVERED",
-        message: {
-          campaignId,
-        },
+  const unsubscribed = await prisma.event.count({
+    where: {
+      type: "UNSUBSCRIBED",
+      message: {
+        campaignId,
       },
-    }),
-
-    prisma.event.count({
-      where: {
-        type: "OPENED",
-        message: {
-          campaignId,
-        },
-      },
-    }),
-
-    prisma.event.count({
-      where: {
-        type: "CLICKED",
-        message: {
-          campaignId,
-        },
-      },
-    }),
-
-    prisma.event.count({
-      where: {
-        type: "REPLIED",
-        message: {
-          campaignId,
-        },
-      },
-    }),
-
-    prisma.event.count({
-      where: {
-        type: "BOUNCED",
-        message: {
-          campaignId,
-        },
-      },
-    }),
-
-    prisma.event.count({
-      where: {
-        type: "UNSUBSCRIBED",
-        message: {
-          campaignId,
-        },
-      },
-    }),
-  ]);
+    },
+  });
 
   return {
     contacts,
@@ -370,6 +356,7 @@ class PrismaCampaignsService
                 in: contactIds,
               },
               ownerId,
+              verificationStatus: "VERIFIED",
             },
             select: {
               id: true,
@@ -381,7 +368,7 @@ class PrismaCampaignsService
           contactIds.length
         ) {
           throw new Error(
-            "One or more selected contacts could not be found."
+            "One or more selected contacts are missing, unauthorized, or not verified."
           );
         }
 

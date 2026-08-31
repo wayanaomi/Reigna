@@ -19,14 +19,16 @@ function getGreeting(): string {
 
 export default async function CommandCenterPage() {
   const ownerId = await requireOwnerId();
-  const [contacts, talkToToday, review, campaigns, senders] = await Promise.all([
-    contactsService.list(ownerId),
-    engagementService.talkToToday(ownerId),
-    reviewService.listNeedingReview(ownerId),
-    campaignsService.list(ownerId),
-    sendingService.listSenderIdentities(ownerId),
-  ]);
 
+  const [contacts, talkToToday, review, campaigns, senders] =
+    await Promise.all([
+      contactsService.list(ownerId),
+      engagementService.talkToToday(ownerId),
+      reviewService.listNeedingReview(ownerId),
+      campaignsService.list(ownerId),
+      sendingService.listSenderIdentities(ownerId),
+    ]);
+    
   if (!contacts.configured) {
     return (
       <div className="mx-auto max-w-2xl">

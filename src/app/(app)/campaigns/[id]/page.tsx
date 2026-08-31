@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { campaignsService } from "@/lib/services/campaigns";
 import { Section } from "@/components/ui/section";
@@ -14,20 +15,41 @@ function statusTone(status: string) {
 
 function messageTone(status: string) {
   if (status === "NEEDS_REVIEW") return "warning" as const;
-  if (status === "SENT" || status === "FOLLOWED_UP" || status === "APPROVED" || status === "QUEUED") return "good" as const;
-  if (status === "REJECTED" || status === "FAILED") return "critical" as const;
+
+  if (
+    status === "SENT" ||
+    status === "FOLLOWED_UP" ||
+    status === "APPROVED" ||
+    status === "QUEUED"
+  ) {
+    return "good" as const;
+  }
+
+  if (status === "REJECTED" || status === "FAILED") {
+    return "critical" as const;
+  }
+
   return "neutral" as const;
 }
 
-export default async function CampaignDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function CampaignDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   const ownerId = await requireOwnerId();
+
   const campaign = await campaignsService.getById(ownerId, id);
-  if (!campaign) notFound();
+
+  if (!campaign) {
+    notFound();
+  }
 
   const messages = await campaignsService.listMessages(ownerId, id);
 
   const stats = campaign.stats;
+
   const rows: [string, number][] = [
     ["Contacts", stats.contacts],
     ["Approved", stats.approved],
@@ -42,22 +64,132 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
     ["Follow-ups sent", stats.followUpsSent],
   ];
 
+  const needsReviewCount = messages.items.filter(
+    (message) => message.status === "NEEDS_REVIEW"
+  ).length;
+
+  const approvedCount = messages.items.filter(
+    (message) => message.status === "APPROVED"
+  ).length;
+
+  const failedCount = messages.items.filter(
+    (message) => message.status === "FAILED"
+  ).length;
+
+  const rejectedCount = messages.items.filter(
+    (message) => message.status === "REJECTED"
+  ).length;
+
+  const hasMessages = messages.items.length > 0;
+
   return (
     <div className="mx-auto max-w-4xl">
       <div className="mb-10 border-b border-border-subtle pb-8">
         <div className="mb-3">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple">Campaign</p>
-          <span aria-hidden className="mt-2 block h-[2px] w-8 bg-gold" />
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-purple">
+            Campaign
+          </p>
+          <span
+            aria-hidden
+            className="mt-2 block h-[2px] w-8 bg-gold"
+          />
         </div>
+
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="font-display text-4xl font-bold leading-[1.1] text-charcoal">{campaign.name}</h1>
-          <StatusBadge tone={statusTone(campaign.status)}>{campaign.status.toLowerCase()}</StatusBadge>
+          <h1 className="font-display text-4xl font-bold leading-[1.1] text-charcoal">
+            {campaign.name}
+          </h1>
+
+          <StatusBadge tone={statusTone(campaign.status)}>
+            {campaign.status.toLowerCase()}
+          </StatusBadge>
         </div>
+
         <p className="mt-3 text-[15px] text-slate">
-          Follow-up {campaign.followUpEnabled ? `enabled — ${campaign.followUpDelayDays} days after no open` : "disabled"}.
+          Follow-up{" "}
+          {campaign.followUpEnabled
+            ? `enabled — ${campaign.followUpDelayDays} days after no open`
+            : "disabled"}
+          .
         </p>
-        <div className="mt-5">
-          <LaunchCampaignActions campaignId={campaign.id} status={campaign.status} />
+
+        <div className="mt-6">
+          {campaign.status === "ACTIVE" ? (
+            <LaunchCampaignActions
+              campaignId={campaign.id}
+              status={campaign.status}
+            />
+          ) : !hasMessages ? (
+            <div className="border-l-2 border-border-strong/20 bg-surface-muted px-5 py-4">
+              <p className="font-display text-base font-semibold text-charcoal">
+                No drafts are available yet
+              </p>
+              <p className="mt-1 text-sm leading-relaxed text-slate">
+                Reigna needs campaign drafts before this campaign can be
+                reviewed or launched.
+              </p>
+            </div>
+          ) : needsReviewCount > 0 ? (
+            <div className="border-l-2 border-gold bg-surface-muted px-5 py-4">
+              <p className="font-display text-base font-semibold text-charcoal">
+                {needsReviewCount}{" "}
+                {needsReviewCount === 1 ? "message needs" : "messages need"}{" "}
+                your review
+              </p>
+
+              <p className="mt-1 text-sm leading-relaxed text-slate">
+                Review the drafts before launching. Reigna will never send an
+                unapproved first-touch message.
+              </p>
+
+              <Link
+                href="/review"
+                className="mt-3 inline-block text-sm font-semibold text-purple underline underline-offset-4"
+              >
+                Go to review queue
+              </Link>
+            </div>
+          ) : approvedCount > 0 ? (
+            <div className="space-y-4">
+              <div className="border-l-2 border-status-good/50 bg-surface-muted px-5 py-4">
+                <p className="font-display text-base font-semibold text-charcoal">
+                  Ready for launch
+                </p>
+
+                <p className="mt-1 text-sm leading-relaxed text-slate">
+                  {approvedCount} approved{" "}
+                  {approvedCount === 1 ? "message is" : "messages are"} ready.
+                  Reigna will run the final sender-health, verification and
+                  suppression checks when you launch.
+                </p>
+              </div>
+
+              <LaunchCampaignActions
+                campaignId={campaign.id}
+                status={campaign.status}
+              />
+            </div>
+          ) : (
+            <div className="border-l-2 border-border-strong/20 bg-surface-muted px-5 py-4">
+              <p className="font-display text-base font-semibold text-charcoal">
+                Nothing is ready to send
+              </p>
+
+              <p className="mt-1 text-sm leading-relaxed text-slate">
+                There are currently no approved messages for this campaign.
+                {rejectedCount > 0
+                  ? ` ${rejectedCount} ${
+                      rejectedCount === 1 ? "draft was" : "drafts were"
+                    } rejected.`
+                  : ""}
+                {failedCount > 0
+                  ? ` ${failedCount} ${
+                      failedCount === 1 ? "message has" : "messages have"
+                    } failed.`
+                  : ""}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -65,23 +197,47 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
         <div className="grid grid-cols-2 gap-px bg-border-subtle sm:grid-cols-3">
           {rows.map(([label, value]) => (
             <div key={label} className="bg-surface px-5 py-4">
-              <p className="font-display text-3xl font-bold text-charcoal">{value}</p>
-              <p className="mt-1 text-xs uppercase tracking-wide text-slate">{label}</p>
+              <p className="font-display text-3xl font-bold text-charcoal">
+                {value}
+              </p>
+              <p className="mt-1 text-xs uppercase tracking-wide text-slate">
+                {label}
+              </p>
             </div>
           ))}
         </div>
       </Section>
 
       <Section index="02" title="Messages">
-        {messages.items.length === 0 ? (
-          <EmptyState title="No messages yet." description="Reigna hasn't drafted anything for this campaign yet." />
+        {!messages.configured ? (
+          <EmptyState
+            title="Database unavailable."
+            description="Reigna can't load campaign messages until the database connection is restored."
+          />
+        ) : messages.error ? (
+          <EmptyState
+            title="Reigna couldn't load messages."
+            description={messages.error}
+            tone="attention"
+          />
+        ) : messages.items.length === 0 ? (
+          <EmptyState
+            title="No messages yet."
+            description="Reigna hasn't drafted anything for this campaign yet."
+          />
         ) : (
           <div className="divide-y divide-border-subtle">
             {messages.items.map((message) => (
-              <div key={message.id} className="flex items-center justify-between gap-4 py-3">
-                <span className="truncate font-display text-[15px] font-semibold text-charcoal">{message.subject}</span>
+              <div
+                key={message.id}
+                className="flex items-center justify-between gap-4 py-3"
+              >
+                <span className="truncate font-display text-[15px] font-semibold text-charcoal">
+                  {message.subject}
+                </span>
+
                 <StatusBadge tone={messageTone(message.status)}>
-                  {message.status.replace("_", " ").toLowerCase()}
+                  {message.status.replaceAll("_", " ").toLowerCase()}
                 </StatusBadge>
               </div>
             ))}

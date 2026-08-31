@@ -16,17 +16,43 @@ export async function searchDiscovery(
   _prevState: DiscoverSearchState,
   formData: FormData
 ): Promise<DiscoverSearchState> {
+  // Require an authenticated Reigna owner before performing discovery.
+  await requireOwnerId();
+
   const query = String(formData.get("query") ?? "").trim();
+
   if (!query) {
-    return { query: "", items: [], submitted: false };
+    return {
+      query: "",
+      items: [],
+      submitted: false,
+    };
   }
 
-  const result = await discoveryService.search(query);
-  return { query, items: result.items, error: result.error, submitted: true };
+  try {
+    const result = await discoveryService.search(query);
+
+    return {
+      query,
+      items: result.items,
+      error: result.error,
+      submitted: true,
+    };
+  } catch (error) {
+    console.error("Discovery search failed:", error);
+
+    return {
+      query,
+      items: [],
+      error: "Reigna couldn't complete the market search.",
+      submitted: true,
+    };
+  }
 }
 
 export async function addToReigna(candidate: DiscoveryResult) {
   const ownerId = await requireOwnerId();
+
   const result = await addDiscoveryCandidateToReigna(ownerId, {
     company: candidate.company,
     companyDomain: candidate.companyDomain,
@@ -35,10 +61,21 @@ export async function addToReigna(candidate: DiscoveryResult) {
     companyCategory: candidate.companyCategory,
     decisionMaker: candidate.decisionMaker,
     title: candidate.title,
-    email: candidate.email,
+    email: candidate.email?.trim().toLowerCase(),
     confidence: candidate.confidence,
     source: candidate.source,
   });
-  if ("error" in result) return { ok: false as const, error: result.error };
-  return { ok: true as const, contactId: result.contactId, alreadyExisted: result.alreadyExisted };
+
+  if ("error" in result) {
+    return {
+      ok: false as const,
+      error: result.error,
+    };
+  }
+
+  return {
+    ok: true as const,
+    contactId: result.contactId,
+    alreadyExisted: result.alreadyExisted,
+  };
 }

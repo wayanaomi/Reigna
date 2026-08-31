@@ -1,23 +1,12 @@
 export const dynamic = "force-dynamic";
 
-import { prisma, isDatabaseConfigured } from "@/lib/db";
+import { isDatabaseConfigured } from "@/lib/db";
 import { resolveWordmarkAsset } from "@/lib/brand-assets";
 import { Wordmark } from "@/components/brand/wordmark";
 import { LoginForm } from "@/components/auth/login-form";
 
 export default async function LoginPage() {
   const logoSrc = resolveWordmarkAsset();
-  let hasOwner = true;
-
-if (isDatabaseConfigured && prisma) {
-  try {
-    hasOwner = (await prisma.user.count()) > 0;
-  } catch {
-    // Keep the login page available even if the database
-    // is temporarily unavailable.
-    hasOwner = true;
-  }
-}
 
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-purple-deep px-6 py-16">
@@ -40,7 +29,7 @@ if (isDatabaseConfigured && prisma) {
             recognize an owner account.
           </p>
         ) : (
-          <LoginForm mode={hasOwner ? "signin" : "bootstrap"} />
+          <LoginForm mode="signin" />
         )}
       </div>
     </div>
