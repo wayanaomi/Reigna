@@ -16,8 +16,13 @@ export interface CreateCampaignInput {
   name: string;
   senderIdentityId: string;
   contactIds: string[];
+
   followUpEnabled?: boolean;
   followUpDelayDays?: number;
+
+  scheduleEnabled?: boolean;
+  scheduledAt?: Date | null;
+  timezone?: string;
 }
 
 /**
@@ -376,21 +381,32 @@ class PrismaCampaignsService
           data: {
             ownerId,
             name,
-            senderIdentityId:
-              senderIdentity.id,
+            senderIdentityId: senderIdentity.id,
+
             followUpEnabled:
-              input.followUpEnabled ?? true,
+            input.followUpEnabled ?? true,
+
             followUpDelayDays:
-              input.followUpDelayDays ?? 4,
+            input.followUpDelayDays ?? 4,
+
+            scheduleEnabled:
+            input.scheduleEnabled ?? false,
+
+            scheduledAt:
+            input.scheduledAt ?? null,
+
+            timezone:
+            input.timezone ?? "Africa/Lagos",
+
             contacts: {
-              create: contactIds.map(
-                (contactId) => ({
-                  contactId,
-                })
-              ),
-            },
-          },
-        });
+            create: contactIds.map(
+            (contactId) => ({
+            contactId,
+        })
+      ),
+    },
+  },
+});
       }
     );
 

@@ -44,7 +44,7 @@ export type EventType =
 
 export type SuppressionReason = "UNSUBSCRIBED" | "BOUNCED" | "COMPLAINED" | "MANUAL";
 
-export type MailboxProvider = "GOOGLE" | "MICROSOFT";
+export type MailboxProvider = "GOOGLE" | "MICROSOFT" | "INSTANTLY";
 
 export type ProviderAccountStatus = "PENDING" | "CONNECTED" | "FAILED";
 

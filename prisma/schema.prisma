@@ -18,8 +18,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ---------------------------------------------------------------------------
@@ -101,6 +102,7 @@ enum SuppressionReason {
 enum MailboxProvider {
   GOOGLE
   MICROSOFT
+  INSTANTLY
 }
 
 enum ProviderAccountStatus {
@@ -200,13 +202,18 @@ model Contact {
 }
 
 model Campaign {
-  id               String         @id @default(cuid())
+  id               String   @id @default(cuid())
   name             String
   ownerId          String
-  owner            User           @relation(fields: [ownerId], references: [id])
+  owner            User     @relation(fields: [ownerId], references: [id])
   senderIdentityId String
   senderIdentity   SenderIdentity @relation(fields: [senderIdentityId], references: [id])
   status           CampaignStatus @default(DRAFT)
+
+  // Scheduling
+  scheduleEnabled Boolean   @default(false)
+  scheduledAt     DateTime?
+  timezone        String    @default("Africa/Lagos")
 
   // Follow-up configuration (v1: a single follow-up step).
   followUpEnabled   Boolean @default(true)
@@ -221,6 +228,7 @@ model Campaign {
 
   @@index([status])
   @@index([ownerId])
+  @@index([scheduledAt])
 }
 
 // Join table: which contacts belong to which campaign, and their per-campaign state.

@@ -33,16 +33,13 @@ const SynthesisSchema = z.object({
   summary: z.string().min(1),
   whyThisPerson: z.string().min(1),
   recommendation: z.string().min(1),
-  signals: z
-    .array(
-      z.object({
-        label: z.string().min(1),
-        detail: z.string().min(1),
-        sourceIndex: z.number().int().min(0),
-      })
-    )
-    .min(0)
-    .max(6),
+  signals: z.array(
+    z.object({
+      label: z.string().min(1),
+      detail: z.string().min(1),
+      sourceIndex: z.number().int().min(0),
+    })
+  ),
 });
 
 function dedupeByUrl(results: TavilySearchResult[]): TavilySearchResult[] {
@@ -64,13 +61,14 @@ async function synthesize(
   sources: TavilySearchResult[]
 ): Promise<z.infer<typeof SynthesisSchema> | null> {
   const system =
-    "You synthesize real web research evidence for a B2B outbound sales tool. " +
-    "You are NOT allowed to invent facts — use only the supplied evidence. " +
-    "Every signal you produce must cite the index of the source it came from. " +
-    "Respond with JSON only, matching this exact shape: " +
-    '{"summary": string, "whyThisPerson": string, "recommendation": string, ' +
-    '"signals": [{"label": string, "detail": string, "sourceIndex": number}]}. ' +
-    "If the evidence is too thin to say something specific and true, return fewer signals rather than inventing one.";
+  "You synthesize real web research evidence for a B2B outbound sales tool. " +
+  "You are NOT allowed to invent facts — use only the supplied evidence. " +
+  "Every signal you produce must cite the index of the source it came from. " +
+  "Respond with JSON only, matching this exact shape: " +
+  '{"summary": string, "whyThisPerson": string, "recommendation": string, ' +
+  '"signals": [{"label": string, "detail": string, "sourceIndex": number}]}. ' +
+  "If the evidence is too thin to say something specific and true, return fewer signals rather than inventing one. " +
+  "Return no more than 6 signals.";
 
   const evidenceList = sources
     .map((s, i) => `[${i}] ${s.title}\nURL: ${s.url}\n${s.snippet.slice(0, 500)}`)
@@ -82,18 +80,22 @@ async function synthesize(
 
 for (let attempt = 0; attempt < 2; attempt++) {
   try {
+    console.log("[Research] Anthropic synthesis attempt:", attempt + 1);
+
     const raw = await anthropicProvider.completeJson(system, userPrompt);
+
+    console.log("[Research] Anthropic synthesis response received");
+
     const parsed = SynthesisSchema.safeParse(raw);
 
     if (parsed.success) {
+      console.log("[Research] Anthropic synthesis succeeded");
       return parsed.data;
     }
 
-    lastError = new Error(
-      `Anthropic returned invalid research JSON: ${parsed.error.message}`
-    );
+    console.error("[Research] Anthropic response failed schema validation:", parsed.error);
   } catch (error) {
-    lastError = error;
+    console.error("[Research] Anthropic synthesis failed:", error);
   }
 }
 
@@ -161,6 +163,7 @@ class TavilyResearchService implements ResearchService {
 
       const signals: ResearchSignal[] = synthesis.signals
         .filter((s) => s.sourceIndex >= 0 && s.sourceIndex < sources.length)
+        .slice(0, 6)
         .map((s) => ({ label: s.label, detail: s.detail, source: sources[s.sourceIndex].url }));
 
       await prisma.researchRun.update({

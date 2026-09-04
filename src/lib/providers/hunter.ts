@@ -89,7 +89,7 @@ export const hunterProvider = {
 
   /** Finds people (with roles) associated with a domain. */
   async findContactsForDomain(domain: string): Promise<HunterEmailCandidate[]> {
-    const query = withKey({ domain, limit: "20" });
+    const query = withKey({ domain, limit: "10" });
     const data = await fetchJson<{ data: { emails: HunterEmailRow[] } }>(`${BASE_URL}/domain-search?${query}`, {
       provider: "hunter",
       timeoutMs: 15_000,

@@ -19,38 +19,92 @@ function useMailboxConnect(provider: "google" | "microsoft") {
   }, []);
 
   async function connect() {
-    setState("connecting");
-    setMessage(null);
-    try {
-      const response = await fetch(`/api/mailboxes/connect/${provider}`, { method: "POST" });
-      const data = await response.json();
-      if (!response.ok) {
-        setState("failed");
-        setMessage(data.error ?? "Reigna couldn't start the connection.");
-        return;
-      }
+  setState("connecting");
+  setMessage(null);
 
-      window.open(data.authorizationUrl, "_blank", "noopener,noreferrer");
-      setState("pending");
+  // Open the popup immediately while we're still inside the user's
+  // button-click event. This avoids browser popup blocking after await.
+  const popup = window.open("about:blank", "_blank");
 
-      pollRef.current = setInterval(async () => {
-        const statusResponse = await fetch(`/api/mailboxes/oauth/status?sessionId=${data.sessionId}`);
+  try {
+    const response = await fetch(`/api/mailboxes/connect/${provider}`, {
+      method: "POST",
+    });
+
+    const data = await response.json();
+
+    console.log("Mailbox OAuth response:", {
+    hasAuthorizationUrl: Boolean(data.authorizationUrl),
+    hasSessionId: Boolean(data.sessionId),
+    authorizationUrlHost: data.authorizationUrl
+    ? new URL(data.authorizationUrl).host
+    : null,
+    });
+
+    if (!response.ok) {
+      popup?.close();
+      setState("failed");
+      setMessage(data.error ?? "Reigna couldn't start the connection.");
+      return;
+    }
+
+    if (!data.authorizationUrl || !data.sessionId) {
+      popup?.close();
+      setState("failed");
+      setMessage("Reigna received an incomplete mailbox connection response.");
+      return;
+    }
+
+    if (popup) {
+      popup.location.href = data.authorizationUrl;
+    } else {
+      // Popup was blocked. Fall back to the current tab.
+      window.location.href = data.authorizationUrl;
+      return;
+    }
+
+    setState("pending");
+
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+    }
+
+    pollRef.current = setInterval(async () => {
+      try {
+        const statusResponse = await fetch(
+          `/api/mailboxes/oauth/status?sessionId=${encodeURIComponent(data.sessionId)}`
+        );
+
         const status = await statusResponse.json();
+
         if (status.state === "connected") {
-          if (pollRef.current) clearInterval(pollRef.current);
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+
           setState("idle");
           router.refresh();
         } else if (status.state === "failed") {
-          if (pollRef.current) clearInterval(pollRef.current);
+          if (pollRef.current) {
+            clearInterval(pollRef.current);
+            pollRef.current = null;
+          }
+
           setState("failed");
           setMessage(status.message ?? "The connection failed.");
         }
-      }, 3000);
-    } catch {
-      setState("failed");
-      setMessage("Reigna couldn't start the connection.");
-    }
+      } catch {
+        // Keep polling. A temporary network failure should not
+        // immediately terminate the OAuth flow.
+      }
+    }, 3000);
+  } catch {
+    popup?.close();
+    setState("failed");
+    setMessage("Reigna couldn't start the connection.");
   }
+}
 
   return { state, message, connect };
 }

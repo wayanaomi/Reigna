@@ -21,32 +21,98 @@ export interface DiscoveryService {
   search(query: string): Promise<ServiceListResult<DiscoveryResult>>;
 }
 
-async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R | null>): Promise<R[]> {
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R | null>
+): Promise<R[]> {
   const results: R[] = [];
   let index = 0;
+
   async function worker() {
     while (index < items.length) {
       const current = items[index++];
+
       try {
         const result = await fn(current);
-        if (result) results.push(result);
-      } catch {
-        // Skip individual failures — one bad domain shouldn't fail the whole search.
+
+        if (result) {
+          results.push(result);
+        }
+      } catch (error) {
+        console.error("[Discovery] Individual candidate failed:", {
+          error: error instanceof Error ? error.message : error,
+          item: current,
+        });
       }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(limit, items.length) },
+      worker
+    )
+  );
+
   return results;
 }
 
-async function toDiscoveryResult(business: NormalizedBusiness): Promise<DiscoveryResult | null> {
-  if (!business.domain) return null;
+async function toDiscoveryResult(
+  business: NormalizedBusiness
+): Promise<DiscoveryResult | null> {
+  console.log("[Discovery] Business:", {
+    company: business.company,
+    domain: business.domain,
+  });
 
-  const candidates = await hunterProvider.findContactsForDomain(business.domain);
+  if (!business.domain) {
+    console.log("[Discovery] Skipping — no domain:", business.company);
+    return null;
+  }
+
+  const candidates =
+    await hunterProvider.findContactsForDomain(business.domain);
+
+  console.log("[Discovery] Hunter result:", {
+    company: business.company,
+    domain: business.domain,
+    candidates: candidates.length,
+  });
+
   const best = pickDecisionMaker(candidates);
-  if (!best || !best.candidate.firstName) return null;
 
-  const fullName = [best.candidate.firstName, best.candidate.lastName].filter(Boolean).join(" ");
+  if (!best) {
+    console.log(
+      "[Discovery] No Hunter decision-maker:",
+      business.domain
+    );
+    return null;
+  }
+
+  console.log("[Discovery] Selected:", {
+    company: business.company,
+    domain: business.domain,
+    name: best.candidate.firstName,
+    title: best.candidate.position,
+    email: best.candidate.value,
+    score: best.score,
+  });
+
+  if (!best.candidate.firstName) {
+    console.log(
+      "[Discovery] Skipping — candidate has no first name:",
+      best.candidate.value
+    );
+    return null;
+  }
+
+  const fullName = [
+    best.candidate.firstName,
+    best.candidate.lastName,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return {
     id: `${business.domain}:${best.candidate.value}`,
@@ -58,10 +124,18 @@ async function toDiscoveryResult(business: NormalizedBusiness): Promise<Discover
     decisionMaker: fullName || best.candidate.value,
     title: best.candidate.position ?? "",
     email: best.candidate.value,
-    confidence: Math.round((best.score + best.candidate.confidence) / 2),
+    confidence: Math.round(
+      (best.score + best.candidate.confidence) / 2
+    ),
     verificationStatus: "UNVERIFIED",
-    signal: business.category ? `${business.category} · ${business.address ?? "location unknown"}` : business.address ?? "",
-    source: business.sourceUrl ?? `https://${business.domain}`,
+    signal: business.category
+      ? `${business.category} · ${
+          business.address ?? "location unknown"
+        }`
+      : business.address ?? "",
+    source:
+      business.sourceUrl ??
+      `https://${business.domain}`,
   };
 }
 
@@ -71,21 +145,41 @@ class LiveDiscoveryService implements DiscoveryService {
   }
 
   async search(query: string): Promise<ServiceListResult<DiscoveryResult>> {
-    if (!this.isConfigured()) return emptyUnconfigured();
+  if (!this.isConfigured()) return emptyUnconfigured();
 
-    let businesses: NormalizedBusiness[];
-    try {
-      businesses = await apifyProvider.searchBusinesses(query);
-    } catch (error) {
-      const message = error instanceof ProviderError ? error.message : "Reigna couldn't complete the market search.";
-      return emptyError(message);
-    }
+  console.log("[Discovery] Searching:", query);
 
-    if (businesses.length === 0) return ok([]);
+  let businesses: NormalizedBusiness[];
 
-    const results = await mapWithConcurrency(businesses, 5, toDiscoveryResult);
-    return ok(results);
+  try {
+    businesses = await apifyProvider.searchBusinesses(query);
+
+    console.log("[Discovery] Apify businesses:", {
+      count: businesses.length,
+      businesses: businesses.map((business) => ({
+        company: business.company,
+        domain: business.domain,
+      })),
+    });
+  } catch (error) {
+    const message =
+      error instanceof ProviderError
+        ? error.message
+        : "Reigna couldn't complete the market search.";
+
+    return emptyError(message);
   }
+
+  if (businesses.length === 0) return ok([]);
+
+  const results = await mapWithConcurrency(
+    businesses,
+    5,
+    toDiscoveryResult
+  );
+
+  return ok(results);
+}
 }
 
 export const discoveryService: DiscoveryService = new LiveDiscoveryService();

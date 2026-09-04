@@ -11,12 +11,18 @@ import { instantlyProvider } from "@/lib/providers/instantly";
 import { deliverabilityService } from "@/lib/services/deliverability";
 
 /**
- * Sending / sender health service boundary — mailbox connection (brokered
- * entirely by Instantly's OAuth API), caps, SPF/DKIM/DMARC status
- * (checked directly via DNS), and warm-up progress.
+ * Sending / sender health service boundary.
  *
- * A SenderIdentity row is only created once an operator actually completes
- * a real OAuth connection; there is no default/demo mailbox.
+ * Reigna supports:
+ * - Google OAuth
+ * - Microsoft OAuth
+ * - Existing Instantly-connected mailboxes
+ *
+ * Instantly owns mailbox connection, warm-up, sending infrastructure,
+ * and mailbox-level health signals.
+ *
+ * Reigna stores only the SenderIdentity metadata it needs to operate.
+ * Raw mailbox passwords are never stored in Reigna.
  */
 export interface SendingService {
   listSenderIdentities(
@@ -27,6 +33,24 @@ export interface SendingService {
     ownerId: string,
     id: string
   ): Promise<SenderIdentity | null>;
+
+  listInstantlyAccounts(): Promise<
+    {
+      email: string;
+      warmupEnabled: boolean;
+      warmupScore: number | null;
+      dailyLimit: number;
+      status: string;
+      statusMessage: string | null;
+      bounceRate: number | null;
+      domain: string;
+    }[]
+  >;
+
+  importInstantlyMailbox(
+    ownerId: string,
+    email: string
+  ): Promise<SenderIdentity>;
 
   startMailboxConnection(
     ownerId: string,
@@ -95,6 +119,136 @@ class PrismaSendingService implements SendingService {
     return row ? toSenderIdentity(row) : null;
   }
 
+  /**
+   * Returns the real mailbox accounts currently connected to the
+   * Instantly workspace.
+   */
+  async listInstantlyAccounts() {
+    if (!instantlyProvider.isConfigured()) {
+      throw new Error("Instantly is not configured.");
+    }
+
+    return instantlyProvider.listAccounts();
+  }
+
+  /**
+   * Imports an already-connected Instantly mailbox into Reigna.
+   *
+   * Reigna does not receive or store the mailbox's IMAP/SMTP password.
+   * The mailbox must already exist in the connected Instantly workspace.
+   */
+  async importInstantlyMailbox(
+    ownerId: string,
+    email: string
+  ): Promise<SenderIdentity> {
+    if (!isDatabaseConfigured || !prisma) {
+      throw new Error("Database is not connected.");
+    }
+
+    if (!instantlyProvider.isConfigured()) {
+      throw new Error("Instantly is not configured.");
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail || !normalizedEmail.includes("@")) {
+      throw new Error("The mailbox address is invalid.");
+    }
+
+    const domain = normalizedEmail.split("@")[1] ?? "";
+
+    if (!domain) {
+      throw new Error("The mailbox address is invalid.");
+    }
+
+    /**
+     * Verify that the mailbox actually exists in Instantly.
+     * This prevents arbitrary or fake mailbox records from being
+     * imported into Reigna.
+     */
+    const account =
+      await instantlyProvider.getAccount(normalizedEmail);
+
+    if (!account) {
+      throw new Error(
+        "This mailbox was not found in your connected Instantly accounts."
+      );
+    }
+
+    /**
+     * Check the domain's current SPF/DKIM/DMARC status.
+     */
+    const deliverability =
+      await deliverabilityService.checkDomain(domain);
+
+    /**
+     * SenderIdentity.mailbox is globally unique, so explicitly check
+     * whether another Reigna owner already controls this mailbox.
+     */
+    const existingSender =
+      await prisma.senderIdentity.findUnique({
+        where: {
+          mailbox: normalizedEmail,
+        },
+      });
+
+    if (
+      existingSender &&
+      existingSender.ownerId !== ownerId
+    ) {
+      throw new Error(
+        "This mailbox is already connected to another Reigna account."
+      );
+    }
+
+    const senderData = {
+      provider: "INSTANTLY" as const,
+      providerAccountId: null,
+      domain,
+      mailbox: normalizedEmail,
+      dailyCap: account.dailyLimit ?? 30,
+      warmupStatus: account.warmupEnabled
+        ? ("WARMING" as const)
+        : ("PAUSED" as const),
+      warmupScore:
+        account.warmupScore ?? undefined,
+      spfValid: deliverability.spfValid,
+      dkimValid: deliverability.dkimValid,
+      dmarcValid: deliverability.dmarcValid,
+      bounceRate: account.bounceRate ?? 0,
+      providerStatus:
+        account.status ?? "connected",
+      providerStatusMessage:
+        account.statusMessage ?? undefined,
+      connectedAt:
+        existingSender?.connectedAt ?? new Date(),
+      lastSyncedAt: new Date(),
+      lastDnsCheckedAt:
+        new Date(deliverability.checkedAt),
+    };
+
+    const senderIdentity = existingSender
+      ? await prisma.senderIdentity.update({
+          where: {
+            id: existingSender.id,
+          },
+          data: senderData,
+        })
+      : await prisma.senderIdentity.create({
+          data: {
+            ownerId,
+            ...senderData,
+          },
+        });
+
+    return toSenderIdentity(senderIdentity);
+  }
+
+  /**
+   * Starts a mailbox OAuth connection through Instantly.
+   *
+   * This remains available for Google/Microsoft OAuth connections.
+   */
   async startMailboxConnection(
     ownerId: string,
     provider: "google" | "microsoft",
@@ -135,6 +289,9 @@ class PrismaSendingService implements SendingService {
     };
   }
 
+  /**
+   * Checks an OAuth mailbox connection started through Instantly.
+   */
   async checkMailboxConnection(
     ownerId: string,
     sessionId: string
@@ -377,6 +534,10 @@ class PrismaSendingService implements SendingService {
     };
   }
 
+  /**
+   * Refreshes Instantly account data and DNS deliverability data
+   * for an existing SenderIdentity.
+   */
   async syncSenderIdentity(
     ownerId: string,
     id: string
@@ -494,19 +655,26 @@ export const sendingService: SendingService =
   new PrismaSendingService();
 
 /**
- * Which mailbox connection infrastructure is
- * configured server-side.
+ * Which mailbox connection infrastructure is configured server-side.
  */
 export function getMailboxProviderStatus(): {
   google: boolean;
   microsoft: boolean;
+  instantly: boolean;
 } {
-  const configured =
+  const instantlyConfigured =
     instantlyProvider.isConfigured();
 
   return {
-    google: configured,
-    microsoft: configured,
+    google: Boolean(
+      process.env.GOOGLE_CLIENT_ID &&
+        process.env.GOOGLE_CLIENT_SECRET
+    ),
+    microsoft: Boolean(
+      process.env.MICROSOFT_CLIENT_ID &&
+        process.env.MICROSOFT_CLIENT_SECRET
+    ),
+    instantly: instantlyConfigured,
   };
 }
 

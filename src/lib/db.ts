@@ -20,6 +20,7 @@ function createPrismaClient() {
       process.env.NODE_ENV === "development"
         ? ["warn", "error"]
         : ["error"],
+    datasourceUrl: process.env.DATABASE_URL,
   });
 }
 
