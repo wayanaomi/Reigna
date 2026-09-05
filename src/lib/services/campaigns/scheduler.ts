@@ -1,18 +1,18 @@
 import { prisma, isDatabaseConfigured } from "@/lib/db";
 import { launchCampaign } from "@/lib/services/campaigns/launch";
+import { findFollowUpCandidates } from "@/lib/services/campaigns/follow-up";
 
 export interface SchedulerResult {
   checked: number;
   launched: number;
   skipped: number;
   failed: number;
+  followUpCandidates: number;
   errors: string[];
 }
 
 /**
- * Finds scheduled campaigns whose launch time has arrived
- * and sends them through the exact same safety-gated launch
- * path used by manual campaign launches.
+ * Runs Reigna's scheduled campaign work.
  *
  * This function never bypasses:
  * - sender health checks
@@ -20,6 +20,9 @@ export interface SchedulerResult {
  * - verification checks
  * - human approval
  * - Instantly
+ *
+ * Follow-ups are currently detected separately and are NOT sent by
+ * this worker until the provider's verified sequence operation is wired.
  */
 export async function processScheduledCampaigns(): Promise<SchedulerResult> {
   if (!isDatabaseConfigured || !prisma) {
@@ -28,6 +31,7 @@ export async function processScheduledCampaigns(): Promise<SchedulerResult> {
       launched: 0,
       skipped: 0,
       failed: 0,
+      followUpCandidates: 0,
       errors: ["No database connection."],
     };
   }
@@ -101,11 +105,49 @@ export async function processScheduledCampaigns(): Promise<SchedulerResult> {
     }
   }
 
+  /*
+   * Follow-up eligibility scan.
+   *
+   * This intentionally does NOT send anything yet.
+   * It only identifies contacts that have:
+   * - a SENT initial message
+   * - passed the configured follow-up delay
+   * - no follow-up already created
+   * - no open
+   * - no click
+   * - no reply
+   * - no bounce
+   * - no unsubscribe
+   * - no complaint
+   * - no suppression
+   */
+  let followUpCandidates = 0;
+
+  try {
+    const ownerIds = [
+      ...new Set(campaigns.map((campaign) => campaign.ownerId)),
+    ];
+
+    for (const ownerId of ownerIds) {
+      const candidates = await findFollowUpCandidates(ownerId);
+      followUpCandidates += candidates.length;
+    }
+  } catch (error) {
+    errors.push(
+      `Follow-up scan: ${
+        error instanceof Error
+          ? error.message
+          : "Unknown follow-up scan error."
+      }`
+    );
+  }
+
   return {
     checked: campaigns.length,
     launched,
     skipped,
     failed,
+    followUpCandidates,
     errors,
   };
 }

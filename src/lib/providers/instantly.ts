@@ -65,6 +65,27 @@ function authHeaders(): Record<string, string> {
   };
 }
 
+export interface InstantlyLead {
+  id: string;
+  email: string | null;
+  campaign: string | null;
+
+  status: number;
+
+  email_open_count: number;
+  email_reply_count: number;
+  email_click_count: number;
+
+  email_opened_step: number | null;
+  email_replied_step: number | null;
+  email_clicked_step: number | null;
+
+  timestamp_last_contact: string | null;
+  timestamp_last_open: string | null;
+  timestamp_last_reply: string | null;
+  timestamp_last_click: string | null;
+}
+
 export const instantlyProvider = {
   isConfigured,
 
@@ -199,6 +220,33 @@ export const instantlyProvider = {
           account.email.toLowerCase() === email.toLowerCase()
       ) ?? null
     );
+  },
+
+    /**
+   * Fetches a lead's current campaign activity from Instantly.
+   *
+   * This is used as the polling fallback when Instantly Webhooks
+   * are unavailable on the connected plan.
+   */
+  async getLeadByEmail(
+    campaignId: string,
+    email: string
+  ): Promise<InstantlyLead | null> {
+    const data = await fetchJson<{
+      items?: InstantlyLead[];
+    }>(`${BASE_URL}/api/v2/leads/list`, {
+      provider: "instantly",
+      method: "POST",
+      headers: authHeaders(),
+      body: JSON.stringify({
+        campaign: campaignId,
+        contacts: [email],
+        limit: 1,
+      }),
+      timeoutMs: 15_000,
+    });
+
+    return data.items?.[0] ?? null;
   },
 
   /**
