@@ -1,152 +1,142 @@
 import { NextResponse } from "next/server";
-import {
-  createFirebaseSession,
-  clearFirebaseSession,
-} from "@/lib/firebase/session";
 import { prisma, isDatabaseConfigured } from "@/lib/db";
+import { getFirebaseAdminAuth } from "@/lib/firebase/admin";
 
-export const runtime = "nodejs";
-
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
     if (!isDatabaseConfigured || !prisma) {
       return NextResponse.json(
-        { error: "Database is not connected." },
+        { error: "Database is not configured." },
         { status: 503 }
       );
     }
 
-    const body = await request.json();
+    const body = await req.json();
+    const idToken = body?.idToken;
 
-    const idToken =
-      typeof body?.idToken === "string"
-        ? body.idToken.trim()
-        : "";
-
-    if (!idToken) {
+    if (!idToken || typeof idToken !== "string") {
       return NextResponse.json(
         { error: "Firebase ID token is required." },
         { status: 400 }
       );
     }
 
-    const decodedToken = await createFirebaseSession(idToken);
+    const adminAuth = getFirebaseAdminAuth();
 
-    const email =
-      decodedToken.email?.trim().toLowerCase();
+    const decodedToken = await adminAuth.verifyIdToken(idToken);
+
+    const uid = decodedToken.uid;
+    const email = decodedToken.email ?? null;
+    const name =
+      decodedToken.name ??
+      email?.split("@")[0] ??
+      "Reigna User";
 
     if (!email) {
-      await clearFirebaseSession();
-
       return NextResponse.json(
         {
           error:
-            "Firebase account does not have an email address.",
+            "Your Firebase account does not have an email address.",
         },
         { status: 400 }
       );
     }
 
     /*
-     * Resolve the Firebase identity through the identity table.
-     *
-     * This allows multiple Firebase authentication providers
-     * to belong to the same Reigna owner.
-     *
-     * Example:
-     *   test@gmail.com       → password
-     *   naomiwayabsc@gmail.com → google.com
-     *
-     * Both can resolve to the same User.
+     * Find the Firebase identity first.
      */
-    const firebaseIdentity =
-      await prisma.firebaseIdentity.findUnique({
+    let identity = await prisma.firebaseIdentity.findUnique({
+      where: {
+        uid,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    /*
+     * If this Firebase identity does not exist yet,
+     * provision it into Reigna.
+     */
+    if (!identity) {
+      /*
+       * First check whether a Reigna account already
+       * exists with this email.
+       */
+      let user = await prisma.user.findUnique({
         where: {
-          uid: decodedToken.uid,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              name: true,
-            },
-          },
+          email,
         },
       });
 
-    if (!firebaseIdentity) {
-      await clearFirebaseSession();
+      /*
+       * Create a new Reigna user for a completely
+       * new Firebase account.
+       */
+      if (!user) {
+        user = await prisma.user.create({
+          data: {
+            email,
+            name,
+          },
+        });
+      }
 
-      return NextResponse.json(
-        {
-          error:
-            "This Firebase account is not authorized for Reigna.",
+      /*
+       * Connect the Firebase identity to the Reigna user.
+       */
+      identity = await prisma.firebaseIdentity.create({
+        data: {
+          uid,
+          email,
+          provider:
+            decodedToken.firebase?.sign_in_provider ?? "unknown",
+          userId: user.id,
         },
-        { status: 403 }
-      );
+        include: {
+          user: true,
+        },
+      });
     }
-
-    const user = firebaseIdentity.user;
 
     /*
-     * Verify that the Firebase identity's stored email
-     * matches the verified Firebase token email.
+     * Create the Firebase session cookie.
      */
-    if (
-      firebaseIdentity.email.trim().toLowerCase() !== email
-    ) {
-      await clearFirebaseSession();
+    const sessionCookie = await adminAuth.createSessionCookie(
+      idToken,
+      {
+        expiresIn: 1000 * 60 * 60 * 24 * 5,
+      }
+    );
 
-      return NextResponse.json(
-        {
-          error:
-            "Firebase account email does not match its registered identity.",
-        },
-        { status: 403 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
+    const response = NextResponse.json({
+      ok: true,
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
+        id: identity.user.id,
+        email: identity.user.email,
+        name: identity.user.name,
       },
     });
+
+    response.cookies.set("reigna_session", sessionCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 5,
+    });
+
+    return response;
   } catch (error) {
-    console.error(
-      "Firebase session creation failed:",
-      error
-    );
+    console.error("Firebase session error:", error);
 
     return NextResponse.json(
       {
-        error:
-          "Unable to create a Reigna session.",
+        error: "Authentication failed.",
       },
-      { status: 401 }
-    );
-  }
-}
-
-export async function DELETE() {
-  try {
-    await clearFirebaseSession();
-
-    return NextResponse.json({
-      success: true,
-    });
-  } catch (error) {
-    console.error(
-      "Firebase session deletion failed:",
-      error
-    );
-
-    return NextResponse.json(
-      { error: "Unable to sign out." },
-      { status: 500 }
+      {
+        status: 401,
+      }
     );
   }
 }

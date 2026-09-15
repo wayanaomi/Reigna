@@ -21,7 +21,7 @@ export default async function SuppressionPage() {
         <EmptyState
           title="No database connection."
           description="Set DATABASE_URL and run a Prisma migration to bring your workspace online."
-          action={<LinkButton href="/settings">View setup status</LinkButton>}
+          action={<LinkButton href="/app/settings">View setup status</LinkButton>}
         />
       ) : suppression.error ? (
         <EmptyState title="Reigna couldn't load the suppression list." description={suppression.error} tone="attention" />

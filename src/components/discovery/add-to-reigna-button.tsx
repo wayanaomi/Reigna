@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import type { DiscoveryResult } from "@/types";
 import { Button } from "@/components/ui/button";
-import { addToReigna } from "@/app/(app)/discover/actions";
+import { addToReigna } from "@/app/app/discover/actions";
 
 export function AddToReignaButton({ result }: { result: DiscoveryResult }) {
   const [pending, startTransition] = useTransition();

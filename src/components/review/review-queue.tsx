@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Contact, Message } from "@/types";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { approveMessage, rejectMessage, updateMessageContent, regenerateDraft } from "@/app/(app)/review/actions";
+import { approveMessage, rejectMessage, updateMessageContent, regenerateDraft } from "@/app/app/review/actions";
 
 export interface ReviewQueueItem {
   message: Message;

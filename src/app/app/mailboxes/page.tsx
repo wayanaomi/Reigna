@@ -67,7 +67,7 @@ export default async function MailboxesPage() {
           title="No database connection."
           description="Set DATABASE_URL and run a Prisma migration to bring your workspace online."
           action={
-            <LinkButton href="/settings">
+            <LinkButton href="/app/settings">
               View setup status
             </LinkButton>
           }
@@ -88,7 +88,7 @@ export default async function MailboxesPage() {
           }
           action={
             canConnect ? (
-              <LinkButton href="/settings">
+              <LinkButton href="/app/settings">
                 Connect mailbox
               </LinkButton>
             ) : undefined

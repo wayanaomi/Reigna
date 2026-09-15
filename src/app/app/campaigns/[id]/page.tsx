@@ -143,7 +143,7 @@ export default async function CampaignDetailPage({
               </p>
 
               <Link
-                href="/review"
+                href="/app/review"
                 className="mt-3 inline-block text-sm font-semibold text-purple underline underline-offset-4"
               >
                 Go to review queue

@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import { importCsv, type ImportCsvState } from "@/app/(app)/leads/import/actions";
+import { importCsv, type ImportCsvState } from "@/app/app/leads/import/actions";
 import { Button } from "@/components/ui/button";
 
 const initialState: ImportCsvState = { submitted: false };
@@ -48,7 +48,7 @@ export function ImportCsvForm() {
 
       {state.summary ? (
         <div className="mt-6">
-          <Link href="/leads" className="text-sm font-medium text-purple underline underline-offset-2">
+          <Link href="/app/leads" className="text-sm font-medium text-purple underline underline-offset-2">
             View your pipeline
           </Link>
         </div>

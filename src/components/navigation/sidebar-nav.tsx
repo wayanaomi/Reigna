@@ -66,7 +66,7 @@ export function SidebarNav({ onNavigate, logoSrc }: { onNavigate?: () => void; l
       </nav>
       <div className="border-t border-white/10 py-2">
         <Link
-          href="/settings"
+          href="/app/settings"
           onClick={onNavigate}
           aria-current={pathname === "/settings" ? "page" : undefined}
           className={navItemClasses(pathname === "/settings")}

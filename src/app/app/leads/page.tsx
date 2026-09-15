@@ -25,7 +25,7 @@ export default async function LeadsPage() {
         <EmptyState
           title="No database connection."
           description="Set DATABASE_URL and run a Prisma migration to bring your workspace online."
-          action={<LinkButton href="/settings">View setup status</LinkButton>}
+          action={<LinkButton href="/app/settings">View setup status</LinkButton>}
         />
       ) : contacts.error ? (
         <EmptyState title="Reigna couldn't load your leads." description={contacts.error} tone="attention" />
@@ -33,7 +33,7 @@ export default async function LeadsPage() {
         <EmptyState
           title="Your pipeline is empty."
           description="Tell Reigna who you're looking for."
-          action={<LinkButton href="/discover">Discover prospects</LinkButton>}
+          action={<LinkButton href="/app/discover">Discover prospects</LinkButton>}
         />
       ) : (
         <div className="divide-y divide-border-subtle">

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { runResearch, regenerateDraft } from "@/app/(app)/leads/[id]/actions";
+import { runResearch, regenerateDraft } from "@/app/app/leads/[id]/actions";
 
 export function RunResearchButton({ contactId }: { contactId: string }) {
   const router = useRouter();

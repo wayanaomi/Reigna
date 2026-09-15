@@ -27,13 +27,13 @@ export default async function NewCampaignPage() {
         <EmptyState
           title="No sending identity connected."
           description="Connect a mailbox before creating a campaign."
-          action={<LinkButton href="/mailboxes">Connect mailbox</LinkButton>}
+          action={<LinkButton href="/app/mailboxes">Connect mailbox</LinkButton>}
         />
       ) : verifiedContacts.length === 0 ? (
         <EmptyState
           title="No verified leads yet."
           description="Reigna can only add verified contacts to a campaign. Discover and verify some leads first."
-          action={<LinkButton href="/discover">Discover prospects</LinkButton>}
+          action={<LinkButton href="/app/discover">Discover prospects</LinkButton>}
         />
       ) : (
         <CampaignWizard senders={senders.items} contacts={verifiedContacts} />

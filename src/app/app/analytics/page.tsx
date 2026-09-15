@@ -44,7 +44,7 @@ export default async function AnalyticsPage() {
         <EmptyState
           title="No database connection."
           description="Set DATABASE_URL and run a Prisma migration to bring your workspace online."
-          action={<LinkButton href="/settings">View setup status</LinkButton>}
+          action={<LinkButton href="/app/settings">View setup status</LinkButton>}
         />
       ) : campaigns.items.length === 0 ? (
         <EmptyState title="Nothing has happened yet." description="Your activity will appear here once Reigna starts working." />

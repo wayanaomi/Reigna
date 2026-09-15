@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { searchDiscovery, type DiscoverSearchState } from "@/app/(app)/discover/actions";
+import { searchDiscovery, type DiscoverSearchState } from "@/app/app/discover/actions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { DiscoveryResultsList } from "@/components/discovery/results-list";

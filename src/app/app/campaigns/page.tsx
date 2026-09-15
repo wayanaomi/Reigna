@@ -30,7 +30,7 @@ export default async function CampaignsPage() {
         <EmptyState
           title="No database connection."
           description="Set DATABASE_URL and run a Prisma migration to bring your workspace online."
-          action={<LinkButton href="/settings">View setup status</LinkButton>}
+          action={<LinkButton href="/app/settings">View setup status</LinkButton>}
         />
       ) : campaigns.error ? (
         <EmptyState title="Reigna couldn't load campaigns." description={campaigns.error} tone="attention" />
@@ -38,7 +38,7 @@ export default async function CampaignsPage() {
         <EmptyState
           title="No outbound is running."
           description="Build your first campaign when your leads are ready."
-          action={<LinkButton href="/leads">Go to leads</LinkButton>}
+          action={<LinkButton href="/app/leads">Go to leads</LinkButton>}
         />
       ) : (
         <div className="divide-y divide-border-subtle">

@@ -21,7 +21,7 @@ export default function DiscoverPage() {
         <EmptyState
           title="Discovery isn't connected yet."
           description="Connect your discovery provider to begin finding prospects."
-          action={<LinkButton href="/settings">View setup status</LinkButton>}
+          action={<LinkButton href="/app/settings">View setup status</LinkButton>}
         />
       )}
     </div>

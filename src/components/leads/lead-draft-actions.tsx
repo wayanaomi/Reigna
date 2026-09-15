@@ -1,6 +1,6 @@
 "use client";
 
-import { approveMessage, rejectMessage } from "@/app/(app)/leads/[id]/actions";
+import { approveMessage, rejectMessage } from "@/app/app/leads/[id]/actions";
 import { Button } from "@/components/ui/button";
 
 export function LeadDraftActions({ messageId, contactId }: { messageId: string; contactId: string }) {
