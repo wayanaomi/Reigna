@@ -1,16 +1,22 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import {
+  Suspense,
+  useEffect,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   createUserWithEmailAndPassword,
+  getRedirectResult,
+  onAuthStateChanged,
   signInWithEmailAndPassword,
+  signInWithRedirect,
 } from "firebase/auth";
 
 import {
   firebaseAuth,
   googleProvider,
-  signInWithPopup,
 } from "@/lib/firebase/client";
 
 import { Wordmark } from "@/components/brand/wordmark";
@@ -182,10 +188,93 @@ function LoginForm() {
       case "Firebase: Error (auth/popup-blocked).":
         return "Your browser blocked the Google sign-in window. Please allow pop-ups and try again.";
 
+      case "Firebase: Error (auth/network-request-failed).":
+        return "Google sign-in could not connect. Please try again.";
+
       default:
         return error.message || "Authentication failed.";
     }
   }
+
+  useEffect(() => {
+    let cancelled = false;
+    let sessionCreated = false;
+
+    async function createSessionForUser(user: {
+      getIdToken: () => Promise<string>;
+    }) {
+      if (cancelled || sessionCreated) {
+        return;
+      }
+
+      try {
+        sessionCreated = true;
+        setLoading(true);
+        setError("");
+
+        const idToken = await user.getIdToken();
+
+        await createReignaSession(idToken);
+
+        if (cancelled) {
+          return;
+        }
+
+        router.replace("/app");
+        router.refresh();
+      } catch (error) {
+        sessionCreated = false;
+
+        if (cancelled) {
+          return;
+        }
+
+        console.error(
+          "Google session creation error:",
+          error
+        );
+
+        setError(getAuthErrorMessage(error));
+        setLoading(false);
+      }
+    }
+
+    async function checkRedirectResult() {
+      try {
+        const result = await getRedirectResult(firebaseAuth);
+
+        if (result?.user) {
+          await createSessionForUser(result.user);
+        }
+      } catch (error) {
+        console.error(
+          "Google redirect authentication error:",
+          error
+        );
+
+        if (!cancelled) {
+          setError(getAuthErrorMessage(error));
+          setLoading(false);
+        }
+      }
+    }
+
+    const unsubscribe = onAuthStateChanged(
+      firebaseAuth,
+      async (user) => {
+        if (user) {
+          await createSessionForUser(user);
+        }
+      }
+    );
+
+    checkRedirectResult();
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, [router]);
 
   async function handleEmailAuth() {
     setError("");
@@ -240,21 +329,13 @@ function LoginForm() {
     try {
       setLoading(true);
 
-      const result = await signInWithPopup(
+      await signInWithRedirect(
         firebaseAuth,
         googleProvider
       );
-
-      const idToken = await result.user.getIdToken();
-
-      await createReignaSession(idToken);
-
-      router.push("/app");
-      router.refresh();
     } catch (error) {
       console.error("Google authentication error:", error);
       setError(getAuthErrorMessage(error));
-    } finally {
       setLoading(false);
     }
   }
