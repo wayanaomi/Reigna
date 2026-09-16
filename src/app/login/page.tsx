@@ -8,10 +8,8 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   createUserWithEmailAndPassword,
-  getRedirectResult,
-  onAuthStateChanged,
   signInWithEmailAndPassword,
-  signInWithRedirect,
+  signInWithPopup,
 } from "firebase/auth";
 
 import {
@@ -239,40 +237,9 @@ function LoginForm() {
       }
     }
 
-    async function checkRedirectResult() {
-      try {
-        const result = await getRedirectResult(firebaseAuth);
-
-        if (result?.user) {
-          await createSessionForUser(result.user);
-        }
-      } catch (error) {
-        console.error(
-          "Google redirect authentication error:",
-          error
-        );
-
-        if (!cancelled) {
-          setError(getAuthErrorMessage(error));
-          setLoading(false);
-        }
-      }
-    }
-
-    const unsubscribe = onAuthStateChanged(
-      firebaseAuth,
-      async (user) => {
-        if (user) {
-          await createSessionForUser(user);
-        }
-      }
-    );
-
-    checkRedirectResult();
 
     return () => {
       cancelled = true;
-      unsubscribe();
     };
   }, [router]);
 
@@ -329,10 +296,16 @@ function LoginForm() {
     try {
       setLoading(true);
 
-      await signInWithRedirect(
+      const result = await signInWithPopup(
         firebaseAuth,
         googleProvider
       );
+
+      const idToken = await result.user.getIdToken();
+      await createReignaSession(idToken);
+
+      router.replace("/app");
+      router.refresh();
     } catch (error) {
       console.error("Google authentication error:", error);
       setError(getAuthErrorMessage(error));
