@@ -9,19 +9,19 @@ import { regenerateMessage } from "@/lib/services/pipeline";
 export async function approveMessage(messageId: string, contactId: string) {
   const ownerId = await requireOwnerId();
   await reviewService.approve(ownerId, messageId);
-  revalidatePath(`/leads/${contactId}`);
+  revalidatePath(`/app/leads/${contactId}`);
 }
 
 export async function rejectMessage(messageId: string, contactId: string) {
   const ownerId = await requireOwnerId();
   await reviewService.reject(ownerId, messageId);
-  revalidatePath(`/leads/${contactId}`);
+  revalidatePath(`/app/leads/${contactId}`);
 }
 
 export async function runResearch(contactId: string) {
   const ownerId = await requireOwnerId();
   const outcome = await researchService.researchContact(ownerId, contactId);
-  revalidatePath(`/leads/${contactId}`);
+  revalidatePath(`/app/leads/${contactId}`);
   if (!outcome.configured || outcome.error) {
     return { ok: false, error: outcome.error ?? "Research is not configured." };
   }
@@ -31,6 +31,6 @@ export async function runResearch(contactId: string) {
 export async function regenerateDraft(messageId: string, contactId: string) {
   const ownerId = await requireOwnerId();
   const result = await regenerateMessage(ownerId, messageId);
-  revalidatePath(`/leads/${contactId}`);
+  revalidatePath(`/app/leads/${contactId}`);
   return result;
 }

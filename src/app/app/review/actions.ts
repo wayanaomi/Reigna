@@ -8,27 +8,34 @@ import { regenerateMessage } from "@/lib/services/pipeline";
 export async function approveMessage(messageId: string) {
   const ownerId = await requireOwnerId();
   await reviewService.approve(ownerId, messageId);
-  revalidatePath("/review");
-  revalidatePath("/");
+  revalidatePath("/app/review");
+  revalidatePath("/app");
 }
 
 export async function rejectMessage(messageId: string) {
   const ownerId = await requireOwnerId();
   await reviewService.reject(ownerId, messageId);
-  revalidatePath("/review");
-  revalidatePath("/");
+  revalidatePath("/app/review");
+  revalidatePath("/app");
 }
 
-export async function updateMessageContent(messageId: string, subject: string, body: string) {
+export async function updateMessageContent(
+  messageId: string,
+  subject: string,
+  body: string
+) {
   const ownerId = await requireOwnerId();
-  await reviewService.updateContent(ownerId, messageId, { subject, body });
-  revalidatePath("/review");
+  await reviewService.updateContent(ownerId, messageId, {
+    subject,
+    body,
+  });
+  revalidatePath("/app/review");
   return { ok: true };
 }
 
 export async function regenerateDraft(messageId: string) {
   const ownerId = await requireOwnerId();
   const result = await regenerateMessage(ownerId, messageId);
-  revalidatePath("/review");
+  revalidatePath("/app/review");
   return result;
 }

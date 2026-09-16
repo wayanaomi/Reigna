@@ -236,118 +236,103 @@ async function generateDraftWithEvidence(
   input: PersonalizationInput,
   signalIndex: number
 ): Promise<z.infer<typeof DraftSchema> | null> {
-  const signal =
-    input.researchSignals[signalIndex];
+  const signal = input.researchSignals[signalIndex];
 
   if (!signal) {
     return null;
   }
 
-  const evidence = normalizeText(
-    signal.detail
-  );
+  const evidence = normalizeText(signal.detail);
 
-  const system =
-    "You write concise first-touch B2B outbound emails for Reigna. " +
-    "Your job is to write a natural email based on ONE supplied factual research signal. " +
-    "The supplied signal is the only recipient-specific evidence you may use. " +
-    "Do not use any information from your general knowledge. " +
-    "Do not invent facts. " +
-    "Do not infer the recipient's problems, responsibilities, intentions, priorities, workflows, " +
-    "buying plans, team structure, internal processes, or business needs. " +
-    "Do not turn an observation into a conclusion. " +
-    "Do not use words such as likely, probably, suggesting, indicates, assume, imagine, or guess " +
-    "to connect the evidence to an unsupported conclusion. " +
-    "You may mention exactly what the supplied evidence says. " +
-    "You may then ask a genuine question about whether the topic is relevant to the recipient. " +
-    "Keep the email concise and human. " +
-    "Do not explain Reigna at excessive length. " +
-    "Do not use hype or growth-hacker language. " +
-    "Do not claim that Reigna solves a problem unless that problem is explicitly established by the recipient evidence. " +
-    "The email must sound like a person who noticed something specific and is asking a reasonable question. " +
+  const system = [
+    "You write concise first-touch B2B outbound emails for Reigna.",
+    "Write a natural email using ONE supplied factual research signal.",
+    "The supplied signal is the only recipient-specific evidence you may use.",
+    "Do not use general knowledge as evidence.",
+    "Do not invent facts.",
+    "Do not infer the recipient's problems, responsibilities, intentions, priorities, workflows, buying plans, team structure, internal processes, or business needs.",
+    "Do not turn an observation into a conclusion.",
+    "Do not interpret what the evidence means about the recipient.",
+    "Do not say or imply that a fact informs, shapes, reflects, demonstrates, signals, suggests, indicates, or reveals how the recipient thinks, works, leads, decides, or operates unless the evidence explicitly says so.",
+    "Do not use likely, probably, suggesting, indicates, assume, imagine, guess, reflects, informs, demonstrates, or reveals to connect evidence to an unsupported conclusion.",
+    "The recipient title is metadata only. It is not evidence of responsibilities, team ownership, priorities, workflows, or problems.",
+    "The company name is metadata only. It is not evidence of company activity unless the supplied signal explicitly states that activity.",
+    "Do not claim that Reigna solves a problem unless that problem is explicitly established by the evidence.",
+    "Do not ask questions that assume the recipient owns, manages, encounters, or is responsible for the subject in the evidence.",
+    "Do not ask whether the subject is handled by another person or team.",
+    "Do not refer to the recipient's role, responsibilities, team, workflow, or internal process unless the evidence explicitly establishes it.",
+    "The final question may ask only whether the topic or type of research is relevant to the company or team.",
+    "Keep the email concise and human.",
+    "Do not use hype or exaggerated compliments.",
     "Return JSON only in this exact format: " +
-    '{"subjectVariants":["subject 1","subject 2"],"body":"email body","usedSignalIndex":' +
-    String(signalIndex) +
-    "}";
+      '{"subjectVariants":["subject 1","subject 2"],"body":"email body","usedSignalIndex":' +
+      String(signalIndex) +
+      "}",
+  ].join(" ");
 
-  const userPrompt =
-    `Recipient: ${input.contactName}\n` +
-    `Title: ${input.contactTitle}\n` +
-    `Company: ${input.company}\n\n` +
-    `ONE VERIFIED RESEARCH SIGNAL:\n` +
-    `Label: ${signal.label}\n` +
-    `Evidence: ${evidence}\n` +
-    `Source: ${signal.source}\n\n` +
-    "EMAIL RULES:\n" +
-    "1. Address the recipient naturally.\n" +
-    "2. Mention one concrete fact from the supplied evidence.\n" +
-    "3. Do not add a second recipient-specific fact.\n" +
-    "4. Do not infer what the recipient thinks, wants, needs, or does internally.\n" +
-    "5. Do not invent a workflow or pain point.\n" +
-    "6. Do not claim the recipient uses a particular tool or process unless the evidence explicitly says so.\n" +
-    "7. Do not claim the recipient is looking for a solution.\n" +
-    "8. End with a low-pressure question.\n" +
-    "9. Keep it around 80–130 words.\n" +
-    "10. No generic greeting.\n" +
-    "11. No fake familiarity.\n" +
-    "12. No exaggerated compliments.\n" +
-    "13. Do not mention information from any other research signal.\n" +
-    (input.voiceGuidance
-      ? `14. Follow this sender voice guidance: ${input.voiceGuidance}\n`
-      : "");
+  const userPrompt = [
+    `Recipient: ${input.contactName}`,
+    `Title: ${input.contactTitle}`,
+    `Company: ${input.company}`,
+    "",
+    "ONE VERIFIED RESEARCH SIGNAL:",
+    `Label: ${signal.label}`,
+    `Evidence: ${evidence}`,
+    `Source: ${signal.source}`,
+    "",
+    "EMAIL RULES:",
+    "1. Address the recipient naturally.",
+    "2. Mention one concrete fact from the supplied evidence.",
+    "3. Do not add another recipient-specific fact.",
+    "4. Treat the title and company name as metadata, not evidence.",
+    "5. State the research observation plainly; do not interpret what it means about the recipient.",
+    "6. Do not invent a workflow, pain point, hiring activity, team structure, responsibility, or buying intent.",
+    "7. Do not claim the recipient uses a particular tool or process unless the evidence explicitly says so.",
+    "8. Do not claim the recipient is looking for a solution.",
+    "9. Do not ask who owns, handles, manages, or is responsible for the subject.",
+    "10. End with a low-pressure question about whether the topic is relevant at the company.",
+    "11. Keep it around 80–130 words.",
+    "12. No generic greeting.",
+    "13. No fake familiarity.",
+    "14. No exaggerated compliments.",
+    "15. Do not mention information from any other research signal.",
+    input.voiceGuidance
+      ? `16. Follow this sender voice guidance: ${input.voiceGuidance}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
 
-  for (let attempt = 0; attempt < 2; attempt += 1) {
-    try {
-      const raw =
-        await anthropicProvider.completeJson(
-          system,
-          userPrompt,
-          1200
-        );
+  try {
+    const raw = await anthropicProvider.completeJson(
+      system,
+      userPrompt,
+      1200,
+      { timeoutMs: 8_000, maxRetries: 0 }
+    );
 
-      const parsed =
-        DraftSchema.safeParse(raw);
+    const parsed = DraftSchema.safeParse(raw);
 
-      if (!parsed.success) {
-        continue;
-      }
-
-      if (
-        parsed.data.usedSignalIndex !==
-        signalIndex
-      ) {
-        continue;
-      }
-
-      const localIssues =
-        localDraftCheck(
-          parsed.data.body
-        );
-
-      if (localIssues.length > 0) {
-        continue;
-      }
-
-      return parsed.data;
-    } catch {
-      // Retry once.
+    if (!parsed.success) {
+      return null;
     }
-  }
 
-  return null;
+    if (parsed.data.usedSignalIndex !== signalIndex) {
+      return null;
+    }
+
+    const localIssues = localDraftCheck(parsed.data.body);
+
+    if (localIssues.length > 0) {
+      return null;
+    }
+
+    return parsed.data;
+  } catch {
+    return null;
+  }
 }
 
-/**
- * Second-pass evidence audit.
- *
- * The auditor receives:
- *
- * - the exact source evidence
- * - the generated email
- *
- * It must determine whether every recipient-specific claim
- * actually follows from that evidence.
- */
 async function auditDraft(
   body: string,
   signal: {
@@ -393,7 +378,8 @@ async function auditDraft(
       await anthropicProvider.completeJson(
         system,
         userPrompt,
-        900
+        900,
+        { timeoutMs: 8_000, maxRetries: 0 }
       );
 
     const parsed =
@@ -458,6 +444,60 @@ function getSignalOrder(
     .map((item) => item.index);
 }
 
+function buildGroundedFallbackDraft(
+  input: PersonalizationInput,
+  signalIndex: number
+): z.infer<typeof DraftSchema> | null {
+  const signal =
+    input.researchSignals[signalIndex];
+
+  if (!signal) {
+    return null;
+  }
+
+  const evidence =
+    normalizeText(signal.detail)
+      .replace(/\\s+/g, " ")
+      .trim();
+
+  if (!evidence) {
+    return null;
+  }
+
+  const recipientName =
+    input.contactName
+      .trim()
+      .split(/\\s+/)[0] || "there";
+
+  const company =
+    input.company.trim();
+
+  const label =
+    normalizeText(signal.label)
+      .replace(/\\s+/g, " ")
+      .trim();
+
+  const subject =
+    label
+      ? `${label} at ${company}`
+      : `A note about ${company}`;
+
+  const body =
+    `${recipientName},\\n\\n` +
+    `I came across this while researching ${company}: ${evidence}\\n\\n` +
+    `Reigna helps teams identify prospects using verified research signals and turn that research into targeted outbound.\\n\\n` +
+    `Would this kind of research be relevant at ${company}?`;
+
+  return {
+    subjectVariants: [
+      subject,
+      `Research on ${company}`,
+    ],
+    body,
+    usedSignalIndex: signalIndex,
+  };
+}
+
 class ClaudePersonalizationService
   implements PersonalizationService
 {
@@ -486,137 +526,171 @@ class ClaudePersonalizationService
     }
 
     /**
-     * We intentionally ignore the research summary when writing
-     * the email. The selected raw signal is the source of truth.
+     * Use the strongest deterministic evidence signal only.
+     *
+     * We intentionally do not cycle through every signal. That keeps
+     * interactive regeneration bounded and prevents a rejected draft
+     * from turning into a long chain of AI calls.
      */
     const signalOrder =
       getSignalOrder(
         input.researchSignals
       );
 
-    let lastIssues: string[] = [];
+    const signalIndex =
+      signalOrder[0];
 
-    for (
-      const signalIndex of signalOrder
-    ) {
-      const signal =
-        input.researchSignals[
-          signalIndex
-        ];
+    const signal =
+      input.researchSignals[
+        signalIndex
+      ];
 
-      if (!signal) {
-        continue;
-      }
+    if (!signal) {
+      return {
+        configured: true,
+        error:
+          "Reigna couldn't select a valid research signal for this contact.",
+      };
+    }
 
-      /**
-       * Try generating a draft from this one piece of evidence.
-       */
-      const draft =
-        await generateDraftWithEvidence(
+    /**
+     * First generation attempt.
+     */
+    const draft =
+      await generateDraftWithEvidence(
+        input,
+        signalIndex
+      );
+
+    if (!draft) {
+      return {
+        configured: true,
+        error:
+          "Reigna couldn't produce a sufficiently evidence-grounded draft yet.",
+      };
+    }
+
+    /**
+     * Local safety check before the evidence audit.
+     */
+    const localIssues =
+      localDraftCheck(
+        draft.body
+      );
+
+    if (localIssues.length > 0) {
+      return {
+        configured: true,
+        error:
+          "Reigna couldn't produce a sufficiently evidence-grounded draft yet.",
+      };
+    }
+
+    /**
+     * Evidence audit.
+     */
+    const audit =
+      await auditDraft(
+        draft.body,
+        signal
+      );
+
+    if (!audit.completed) {
+      console.warn(
+        "[personalization] Evidence audit could not be completed",
+        {
+          contact: input.contactName,
+          company: input.company,
+          issues: audit.issues,
+        }
+      );
+
+      return {
+        configured: true,
+        error:
+          "Reigna couldn't complete the evidence audit. Please try regenerating again.",
+      };
+    }
+
+    /**
+     * If Claude's draft is rejected, do not ask Claude to reinterpret
+     * the evidence again. Use a deterministic fallback built directly
+     * from the verified research signal.
+     *
+     * This guarantees that Reigna never invents recipient roles,
+     * responsibilities, workflows, hiring activity, or team structure
+     * simply to make the email sound conversational.
+     */
+    if (!audit.approved) {
+      const fallbackDraft =
+        buildGroundedFallbackDraft(
           input,
           signalIndex
         );
 
-      if (!draft) {
-        lastIssues = [
-          "The draft did not satisfy Reigna's evidence-grounding rules.",
-        ];
+      if (!fallbackDraft) {
+        console.warn(
+          "[personalization] Grounded fallback could not be created",
+          {
+            contact: input.contactName,
+            company: input.company,
+            issues: audit.issues,
+          }
+        );
 
-        continue;
+        return {
+          configured: true,
+          error:
+            "Reigna couldn't produce a sufficiently evidence-grounded draft yet.",
+        };
       }
 
-      /**
-       * Local safety check again before the expensive audit.
-       */
-      const localIssues =
+      const fallbackIssues =
         localDraftCheck(
-          draft.body
+          fallbackDraft.body
         );
 
-      if (localIssues.length > 0) {
-        lastIssues =
-          localIssues;
-
-        continue;
-      }
-
-      /**
-       * Evidence audit.
-       */
-      const audit =
-        await auditDraft(
-          draft.body,
-          signal
+      if (fallbackIssues.length > 0) {
+        console.warn(
+          "[personalization] Grounded fallback failed local validation",
+          {
+            contact: input.contactName,
+            company: input.company,
+            issues: fallbackIssues,
+          }
         );
 
-      /**
-       * If the audit service itself failed, retry the same
-       * signal rather than immediately destroying the draft.
-       */
-      if (!audit.completed) {
-        lastIssues =
-          audit.issues;
-
-        /**
-         * Give the audit another attempt.
-         */
-        const retryAudit =
-          await auditDraft(
-            draft.body,
-            signal
-          );
-
-        if (!retryAudit.completed) {
-          lastIssues =
-            retryAudit.issues;
-
-          continue;
-        }
-
-        if (!retryAudit.approved) {
-          lastIssues =
-            retryAudit.issues;
-
-          continue;
-        }
-      } else if (!audit.approved) {
-        lastIssues =
-          audit.issues;
-
-        continue;
+        return {
+          configured: true,
+          error:
+            "Reigna couldn't produce a sufficiently evidence-grounded draft yet.",
+        };
       }
 
-      /**
-       * Only now is the draft allowed through.
-       *
-       * The research basis is constructed entirely from our
-       * original evidence object — never from Claude.
-       */
       return {
         configured: true,
         subject:
-          draft.subjectVariants[0],
+          fallbackDraft.subjectVariants[0],
         subjectVariants:
-          draft.subjectVariants,
-        body: draft.body,
+          fallbackDraft.subjectVariants,
+        body: fallbackDraft.body,
         researchBasis:
           `${signal.detail} (Source: ${signal.source})`,
       };
     }
 
-    console.warn(
-      "[personalization] All grounded draft attempts failed",
-      {
-        contact: input.contactName,
-        company: input.company,
-        issues: lastIssues,
-      }
-    );
-
+    /**
+     * The original draft passed both local and evidence checks.
+     */
     return {
       configured: true,
-      error:
-        "Reigna couldn't produce a sufficiently evidence-grounded draft yet.",
+      subject:
+        draft.subjectVariants[0],
+      subjectVariants:
+        draft.subjectVariants,
+      body: draft.body,
+      researchBasis:
+        `${signal.detail} (Source: ${signal.source})`,
     };
   }
 }

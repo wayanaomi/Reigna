@@ -19,7 +19,7 @@ function verificationTone(status: Contact["verificationStatus"]) {
 export function LeadRow({ contact }: { contact: Contact }) {
   return (
     <Link
-      href={`/leads/${contact.id}`}
+      href={`/app/leads/${contact.id}`}
       className="-mx-5 flex items-center justify-between gap-4 border-l-2 border-transparent px-5 py-4 transition-colors hover:border-purple/25 hover:bg-surface-muted"
     >
       <div className="flex min-w-0 items-center gap-3">

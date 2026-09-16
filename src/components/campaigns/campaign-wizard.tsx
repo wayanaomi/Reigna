@@ -137,7 +137,7 @@ export function CampaignWizard({
           return;
         }
 
-        router.push(`/campaigns/${data.campaign.id}`);
+        router.push(`/app/campaigns/${data.campaign.id}`);
       } catch {
         setError(
           "Reigna couldn't create this campaign. Check your connection and try again."

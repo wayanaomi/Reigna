@@ -25,7 +25,7 @@ export function AddToReignaButton({ result }: { result: DiscoveryResult }) {
 
   if (state) {
     return (
-      <Link href={`/leads/${state.contactId}`} className="text-xs font-medium text-purple underline underline-offset-2">
+      <Link href={`/app/leads/${state.contactId}`} className="text-xs font-medium text-purple underline underline-offset-2">
         {state.alreadyExisted ? "Already in Reigna — view lead" : "Added — view lead"}
       </Link>
     );

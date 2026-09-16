@@ -7,7 +7,7 @@ export function TalkToTodayRow({ item, highlight = false }: { item: TalkToTodayI
   const { contact } = item;
   return (
     <Link
-      href={`/leads/${contact.id}`}
+      href={`/app/leads/${contact.id}`}
       className={cn(
         "-mx-5 flex items-start gap-4 border-l-2 px-5 py-4 transition-colors hover:bg-surface-muted",
         highlight ? "border-gold bg-gold/[0.04]" : "border-transparent hover:border-purple/20"

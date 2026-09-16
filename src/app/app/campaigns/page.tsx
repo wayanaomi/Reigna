@@ -23,7 +23,7 @@ export default async function CampaignsPage() {
         eyebrow="Campaigns"
         title="Outbound"
         description="Operational truth for every campaign — not vanity metrics."
-        actions={<LinkButton href="/campaigns/new">New campaign</LinkButton>}
+        actions={<LinkButton href="/app/campaigns/new">New campaign</LinkButton>}
       />
 
       {!campaigns.configured ? (
@@ -45,7 +45,7 @@ export default async function CampaignsPage() {
           {campaigns.items.map((campaign) => (
             <Link
               key={campaign.id}
-              href={`/campaigns/${campaign.id}`}
+              href={`/app/campaigns/${campaign.id}`}
               className="-mx-5 flex items-center justify-between gap-4 border-l-2 border-transparent px-5 py-5 transition-colors hover:border-purple/25 hover:bg-surface-muted"
             >
               <div className="min-w-0">

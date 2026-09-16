@@ -27,6 +27,6 @@ export async function importCsv(_prevState: ImportCsvState, formData: FormData):
   }
 
   const summary = await importContacts(ownerId, rows);
-  revalidatePath("/leads");
+  revalidatePath("/app/leads");
   return { submitted: true, summary };
 }

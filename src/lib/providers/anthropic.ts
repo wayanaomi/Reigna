@@ -37,7 +37,12 @@ interface AnthropicMessageResponse {
  * `system` should instruct Claude to use only supplied evidence and to
  * respond with JSON only (no prose, no markdown fences).
  */
-async function complete(system: string, userPrompt: string, maxTokens = 1200): Promise<string> {
+async function complete(
+  system: string,
+  userPrompt: string,
+  maxTokens = 1200,
+  options?: { timeoutMs?: number; maxRetries?: number }
+): Promise<string> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new ProviderError("anthropic", "Anthropic is not configured.");
 
@@ -62,8 +67,8 @@ async function complete(system: string, userPrompt: string, maxTokens = 1200): P
       system,
       messages: [{ role: "user", content: userPrompt }],
     }),
-    timeoutMs: 30_000,
-    maxRetries: 1,
+    timeoutMs: options?.timeoutMs ?? 30_000,
+    maxRetries: options?.maxRetries ?? 1,
   });
 
   const text = data.content.find((block) => block.type === "text")?.text;
@@ -88,8 +93,13 @@ export const anthropicProvider = {
    * side effects) and otherwise surface an honest error rather than
    * fabricate a partial record.
    */
-  async completeJson(system: string, userPrompt: string, maxTokens?: number): Promise<unknown> {
-    const text = await complete(system, userPrompt, maxTokens);
+  async completeJson(
+    system: string,
+    userPrompt: string,
+    maxTokens?: number,
+    options?: { timeoutMs?: number; maxRetries?: number }
+  ): Promise<unknown> {
+    const text = await complete(system, userPrompt, maxTokens, options);
     return extractJson(text);
   },
 };

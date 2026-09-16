@@ -19,14 +19,14 @@ import { cn } from "@/lib/utils";
 import { logout } from "@/app/login/actions";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Command Center", icon: Command },
-  { href: "/discover", label: "Discover", icon: Search },
-  { href: "/leads", label: "Leads", icon: Users },
-  { href: "/review", label: "Review", icon: ClipboardCheck },
-  { href: "/campaigns", label: "Campaigns", icon: Layers },
-  { href: "/mailboxes", label: "Mailboxes", icon: Mail },
-  { href: "/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/suppression", label: "Suppression", icon: ShieldOff },
+  { href: "/app", label: "Command Center", icon: Command },
+  { href: "/app/discover", label: "Discover", icon: Search },
+  { href: "/app/leads", label: "Leads", icon: Users },
+  { href: "/app/review", label: "Review", icon: ClipboardCheck },
+  { href: "/app/campaigns", label: "Campaigns", icon: Layers },
+  { href: "/app/mailboxes", label: "Mailboxes", icon: Mail },
+  { href: "/app/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/app/suppression", label: "Suppression", icon: ShieldOff },
 ] as const;
 
 function navItemClasses(active: boolean) {
@@ -68,8 +68,8 @@ export function SidebarNav({ onNavigate, logoSrc }: { onNavigate?: () => void; l
         <Link
           href="/app/settings"
           onClick={onNavigate}
-          aria-current={pathname === "/settings" ? "page" : undefined}
-          className={navItemClasses(pathname === "/settings")}
+          aria-current={pathname === "/app/settings" ? "page" : undefined}
+          className={navItemClasses(pathname === "/app/settings")}
         >
           <Settings className="h-4 w-4 shrink-0" aria-hidden />
           Settings
